@@ -810,6 +810,28 @@ static int ipc4_get_large_config_module_instance(struct ipc4_message_request *ip
 	return ret;
 }
 
+static int ipc4_set_vendor_config_module_instance(struct ipc4_message_request *ipc4)
+{
+	struct ipc4_module_large_config config;
+	struct comp_dev *dev = NULL;
+	const struct comp_driver *drv;
+	int ret = memcpy_s(&config, sizeof(config), ipc4, sizeof(*ipc4));
+
+	if (config.primary.r.module_id) {
+		uint32_t comp_id;
+
+		comp_id = IPC4_COMP_ID(config.primary.r.module_id, config.primary.r.instance_id);
+		dev = ipc4_get_comp_dev(comp_id);
+		if (!dev)
+			return IPC4_MOD_INVALID_ID;
+
+		/* Pass IPC to target core */
+		if (!cpu_is_me(dev->ipc_config.core))
+			return ipc4_process_on_core(dev->ipc_config.core, false);
+	}
+
+}
+
 static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ipc4)
 {
 	struct ipc4_module_large_config config;
@@ -831,6 +853,14 @@ static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ip
 
 	if (!drv->ops.set_large_config)
 		return IPC4_INVALID_REQUEST;
+
+	//##########
+	if (config.extension.r.large_param_id == VENDOR_CONFIG_PARAM){
+		return IPC4_UNAVAILABLE;
+		ipc4_set_vendor_config_module_instance(ipc4);
+	}
+
+	//##########
 
 	if (config.primary.r.module_id) {
 		uint32_t comp_id;

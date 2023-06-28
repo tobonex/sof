@@ -36,6 +36,9 @@
 #define SOF_IPC4_DST_QUEUE_ID_BITFIELD_SIZE	3
 #define SOF_IPC4_SRC_QUEUE_ID_BITFIELD_SIZE	3
 
+/* Special large_param_id values */
+#define VENDOR_CONFIG_PARAM 0xFF
+
 enum sof_ipc4_module_type {
 	SOF_IPC4_MOD_INIT_INSTANCE		= 0,
 	SOF_IPC4_MOD_CONFIG_GET			= 1,
