@@ -2378,6 +2378,7 @@ static int kpb_set_micselect(struct comp_dev *dev, const void *data,
 	return 0;
 }
 
+__attribute__((optnone))
 static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 				bool first_block,
 				bool last_block,
@@ -2386,7 +2387,15 @@ static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 {
 	comp_info(dev, "kpb_set_large_config()");
 
-	switch (param_id) {
+	const struct ByteArraySimple *ba = (struct ByteArraySimple *)data;
+	uint32_t kek = ba->size;
+	//We can use extended param id for both extended and standard param id
+	union ExtendedParamId extended_param_id;
+	extended_param_id.full = param_id;
+
+	switch (extended_param_id.part.parameter_type) {
+	case 1:
+		return 0;
 	case KP_BUF_CLIENT_MIC_SELECT:
 		return kpb_set_micselect(dev, data, data_offset);
 	default:

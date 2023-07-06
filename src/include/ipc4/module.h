@@ -206,6 +206,35 @@ struct ipc4_module_bind_unbind {
 	} extension;
 } __attribute__((packed, aligned(4)));
 
+
+union ExtendedParamId
+{
+    uint32_t full;
+    struct
+    {
+        uint32_t parameter_type     : 8;
+        uint32_t parameter_instance : 24;
+    } part;
+};
+
+struct ModConfParam
+{
+    //! parameter id
+    uint32_t param_id;
+    //! size of value (in bytes)
+    uint32_t param_size;
+    //! value (padded w/ zeroes to align to dword)
+    uint32_t param_data[1];
+};
+static const uint32_t TLV_DATA_OFFSET = sizeof(struct ModConfParam) - sizeof(uint32_t);
+
+struct ByteArraySimple{
+	uint8_t* data;
+	uint32_t size;
+
+};
+
+
 struct ipc4_module_large_config {
 	union {
 		uint32_t dat;
