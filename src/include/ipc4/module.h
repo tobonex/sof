@@ -206,34 +206,34 @@ struct ipc4_module_bind_unbind {
 	} extension;
 } __attribute__((packed, aligned(4)));
 
-
-union ExtendedParamId
-{
-    uint32_t full;
-    struct
-    {
-        uint32_t parameter_type     : 8;
-        uint32_t parameter_instance : 24;
-    } part;
+union ipc4_extended_param_id {
+	uint32_t full;
+	struct{
+		uint32_t parameter_type     : 8;
+		uint32_t parameter_instance : 24;
+	} part;
 };
 
-struct ModConfParam
-{
-    //! parameter id
-    uint32_t param_id;
-    //! size of value (in bytes)
-    uint32_t param_size;
-    //! value (padded w/ zeroes to align to dword)
-    uint32_t param_data[1];
+/* Casting IPC payload to this, address of param_data
+ * becomes the address of the start of actual data.
+ * TLV_DATA_OFFSET is the offset to the actual data from
+ * the beginning of the structure.
+ */
+struct ipc4_mod_conf_param {
+	//! parameter id
+	uint32_t param_id;
+	//! size of value (in bytes)
+	uint32_t param_size;
+	//! value (padded w/ zeroes to align to dword)
+	uint32_t param_data[1];
 };
-static const uint32_t TLV_DATA_OFFSET = sizeof(struct ModConfParam) - sizeof(uint32_t);
 
-struct ByteArraySimple{
-	uint8_t* data;
+static const uint32_t TLV_DATA_OFFSET = sizeof(struct ipc4_mod_conf_param) - sizeof(uint32_t);
+
+struct byte_array_simple {
+	uint8_t *data;
 	uint32_t size;
-
 };
-
 
 struct ipc4_module_large_config {
 	union {
