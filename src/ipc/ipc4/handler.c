@@ -887,20 +887,18 @@ static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
 			(uint8_t *)&tlv->param_data[0], tlv->param_size };
 	uint32_t param_id = 0;
 
-	if (init_block)
-	{
+	if (init_block) {
 		// for initial block use param_id from tlv, otherwise use built-in
 		// module instance handling mechanism (there is no default impl of
 		// caching large_param_id - @see LargeConfigSet)
 		param_id = tlv->param_id;
-		ba.data = (uint8_t*)ba.data + TLV_DATA_OFFSET;
+		ba.data = (uint8_t *)ba.data + TLV_DATA_OFFSET;
 		ba.size = ba.size - TLV_DATA_OFFSET;
 		data_off_size -= TLV_DATA_OFFSET;
 	}
 	ret = drv->ops.set_large_config(dev, tlv->param_id, init_block,
 		final_block, data_off_size, (uint8_t *)(&ba));
 	return ret;
-
 }
 
 static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ipc4)
