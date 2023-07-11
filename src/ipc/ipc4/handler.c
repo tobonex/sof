@@ -884,7 +884,7 @@ static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
 	/* else, !(init_block && final_block) */
 	const struct ipc4_mod_conf_param *tlv = (struct ipc4_mod_conf_param *)data;
 	struct byte_array_simple ba = {
-			(uint8_t *)&tlv->param_data[0], tlv->param_size };
+			(uint8_t *)&data, data_off_size };
 	uint32_t param_id = 0;
 
 	if (init_block) {
