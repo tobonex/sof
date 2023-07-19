@@ -2378,6 +2378,225 @@ static int kpb_set_micselect(struct comp_dev *dev, const void *data,
 	return 0;
 }
 
+//pola fmt==================================================================================
+/* Klasa moduleinstance istnieje tylko po to by możnabyło wszystkie moduły wrzucić do jednej listy
+ * Tu ejst problem bo nie mamy dziedziczenia, a coś musimy wrzucić do tego configu. Chyba że właśnmmie zapiszemy module id i instance id
+ * byt potem zrobić ten getdev czy coś by pobrać seterownik danego modułu.
+ *
+ * Mamy tu poniżj coś w stylu klasy bazowej dla comp
+ * static const struct comp_driver comp_kpb =
+ *
+ *
+ * trzeba zdecydować z co do listy wrzucać:
+ * dev chyba reprezentuje module i instance - najpewniej to
+ * smą strukturę z module i instance
+ * drv? - ale to chyba sie odnosi do samej obsługi modułu a nie konkretnej instancji
+ *
+ */
+#define FAST_MODE_TASK_MAX_LIST_COUNT 5
+#define FAST_MODE_TASK_MAX_MODULES_COUNT 16
+
+
+struct ModuleInstanceList{
+	struct comp_dev devs[16];
+}
+
+
+/*! Array of pointers to all module lists to be processed. */
+ModuleInstanceList* mod_instance_list_[FAST_MODE_TASK_MAX_LIST_COUNT];
+//jeden dla każdego sinkpinu
+//to jest element listy dwukierunkowej, ma tam sam element i też wskaźniki na next itp
+ModuleInstanceListItem kpb_list_item_[KPB_MAX_SINK_CNT];
+
+ModuleInstanceListItem modules_list_item_[FAST_MODE_TASK_MAX_MODULES_COUNT];
+
+ModuleInstance* kpb_mi_ptr_;
+
+
+/*
+ * How is this alloc anyway? its just adding to list
+ */
+inline ErrorCode AllocFmtModuleListItem(
+    ModuleInstance* mi_ptr, ModuleInstanceListItem** item)
+{
+	//check if module already added?
+    for (size_t module_slot_idx = 0; module_slot_idx < FAST_MODE_TASK_MAX_MODULES_COUNT;
+                    ++module_slot_idx)
+    {
+        if (modules_list_item_[module_slot_idx].elem == mi_ptr)
+        {
+            return ADSP_INVALID_REQUEST;
+        }
+    }
+
+    //add module to first available field
+    for (size_t module_slot_idx = 0; module_slot_idx < FAST_MODE_TASK_MAX_MODULES_COUNT;
+                    ++module_slot_idx)
+    {
+        if (NULL == modules_list_item_[module_slot_idx].elem)
+        {
+            modules_list_item_[module_slot_idx].elem = mi_ptr;
+            *item = &modules_list_item_[module_slot_idx];
+            return ADSP_SUCCESS;
+        }
+    }
+    return ADSP_OUT_OF_RESOURCES;
+}
+
+
+
+
+
+
+comp_dev* get_comp_dev_from_id(uint32_t module_id, uint32_t instance_id){
+	struct comp_dev *dev = NULL;
+
+	comp_id = IPC4_COMP_ID(module_id, instance_id);
+	dev = ipc4_get_comp_dev(comp_id);
+}
+
+
+
+
+
+
+int PrepareFmtModulesList(
+    uint32_t outpin_idx, const struct kpb_task_params* modules_to_prepare,
+    ModuleInstance** last_copier_mi)
+{
+	if(NULL == modules_to_prepare)
+		return -EINVAL;
+	if(NULL == last_copier_mi)
+		return -EINVAL;
+	if(outpin_idx >= KPB_MAX_SINK_CNT)
+		return -EINVAL;
+
+    int ret = 0;
+
+//    dsp_fw_mgmt::ModuleManager* module_manager =
+//    dsp_fw_mgmt::FirmwareManagerMng::GetMngInstanceWrapped()->GetModuleManager();
+//    ModuleInstance* mi = NULL;
+
+
+
+    if (modules_to_prepare->number_of_modules != 0)
+    {
+#ifdef SWITCHOUT
+        /* Add kpb at begnining of the list */
+    	(&kpb_list_item_[outpin_id])->elem = kpb_mi_ptr_; //elem to faktyczna dana w strukturze listyBI
+        ec = modules_list(outpin_idx)->PushBack(kpb_list_item(outpin_idx));
+        RETURN_ON_ERROR(ec);
+#else
+        kpb_list_item_[outpin_id] = comp_kpb;// tylko comp_kpb to chyba drv a nie dev
+
+#endif
+    }
+
+    for (size_t module_desc_idx = 0; module_desc_idx < modules_to_prepare->number_of_modules;
+        ++module_desc_idx)
+    {
+#ifdef SWITCHOUT
+        mi = module_manager->GetModuleInstance(
+                modules_to_prepare->module_instance_ids[module_desc_idx].module_id,
+                modules_to_prepare->module_instance_ids[module_desc_idx].instance_id);
+
+        RETURN_EC_ON_FAIL(mi != NULL, ADSP_KPB_INVALID_MODULE_INSTANCE);
+
+#else
+        //instead of getmoduleinstance
+        truct comp_dev *dev = NULL;
+        dev = get_comp_dev_from_id(modules_to_prepare->module_instance_ids[module_desc_idx].module_id,
+        							modules_to_prepare->module_instance_ids[module_desc_idx].instance_id);
+
+        if (!dev)
+        	return IPC4_MOD_INVALID_ID;
+
+#endif
+
+
+
+
+
+
+        ModuleInstanceListItem* new_list_item_ptr;
+
+        ec = AllocFmtModuleListItem(mi, &new_list_item_ptr);
+        RETURN_ON_ERROR(ec);
+        /* Should be catch by status check above */
+        HALT_ON_FAIL_AND_REPORT_ERROR(new_list_item_ptr != NULL, ADSP_OUT_OF_RESOURCES);
+
+        new_list_item_ptr->elem = mi;
+        ec = modules_list(outpin_idx)->PushBack(new_list_item_ptr);
+        RETURN_ON_ERROR(ec);
+    }
+
+    *last_copier_mi = mi;
+
+    return ec;
+}
+
+int UnregisterModulesList(ModuleInstanceList* list_to_remove, size_t list_idx)
+{
+    if (list_to_remove == mod_instance_list_[list_idx])
+    {
+        mod_instance_list_[list_idx] = NULL;
+        return ADSP_SUCCESS;
+    }
+    if (NULL == mod_instance_list_[list_idx])
+    {
+        /* Nothing to do here */
+        return ADSP_SUCCESS;
+    }
+    return ADSP_ALREADY_IN_USE;
+}
+
+/* Important: function below should be called only from within critical section (Goto KPB for more details) */
+int RegisterModulesList(ModuleInstanceList* new_list, size_t list_idx)
+{
+    RETURN_EC_ON_FAIL(list_idx < NELEMENTS(mod_instance_list_), ADSP_INVALID_PARAM);
+    /* Check if slot is free */
+    if (NULL == mod_instance_list_[list_idx])
+    {
+        mod_instance_list_[list_idx] = new_list;
+        return ADSP_SUCCESS;
+    }
+    if (new_list == mod_instance_list_[list_idx])
+    {
+        /* Already registered. */
+        return ADSP_SUCCESS;
+    }
+    return ADSP_ALREADY_IN_USE;
+}
+
+static int ConfigureFastModeTask(const kpb_task_params* cfg, size_t pin)
+{
+    debug_assert(cfg != NULL && pin < KPB_MAX_SINK_CNT && pin != REALTIME_PIN_ID && cfg->module_instance_ids > 0);
+
+    int ret= 0;
+    ModuleInstance* last_copier_ptr = NULL;
+    /* If this fail it might be serious missconfig */
+    ec = fast_mode_task_.UnregisterModulesList(fmt_modules_list_.modules_list(pin), pin);
+    HALT_ON_ERROR(ec);
+
+    fmt_modules_list_.ClearFmtModulesList(pin);
+
+    /* When modules count IS 0 we only need to remove modules from Fast Mode. */
+    if (cfg != NULL && cfg->number_of_modules > 0)
+    {
+        if (ADSP_SUCCESS == ec)
+        {
+            ret = PrepareFmtModulesList(pin, cfg , &last_copier_ptr);
+        }
+
+        if (ADSP_SUCCESS == ec)
+        {
+            ec = fast_mode_task_.RegisterModulesList(fmt_modules_list_.modules_list(pin), pin);
+        }
+    }
+
+    return ec;
+}
+
 static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 				bool first_block,
 				bool last_block,
@@ -2386,17 +2605,43 @@ static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 {
 	/* We can use extended param id for both extended
 	 * and standard param id
+	 * Also we have to smuggle a struct through the char pointer
 	 */
 	const struct byte_array_simple *ba = (struct byte_array_simple *)data;
 	union ipc4_extended_param_id extended_param_id;
+	int ret = 0;
 
 	comp_info(dev, "kpb_set_large_config()");
 
 	extended_param_id.full = param_id;
 
 	switch (extended_param_id.part.parameter_type) {
-//	case 1:
-//		return 0;
+	case KP_BUF_CFG_FM_MODULE:
+        /* Modules count equals 0 is a special case in which we want to clear list for given pin.
+         * In case of that however dataAs<KpBufferingTaskParams> will return NULL.
+         * To avoid this we first checking only modules count first and full config after that.
+         * Other solution would be for driver to allways send 12 bytes even if there is no module
+         * on list - which is also not very elegant. */
+        const kpb_task_params* cfg = NULL;
+        uint32_t nr_of_modules = *(uint32_t *)data; //get first dword from payload, dword size field
+        uint32_t outpin_id = extended_param_id.part.parameter_instance;
+
+        if (nr_of_modules != 0)
+        {
+            cfg = (kpb_task_params *)data;
+            if (ret  < 0)
+            	return -EINVAL;
+        }
+
+        if (outpin_id >= KPB_MAX_SINK_CNT) {
+        	return -EINVAL;
+        }
+
+        ret = ConfigureFastModeTask(cfg, outpin_id);
+        if (ret < 0)
+        	return ret;
+
+		return 0;
 	case KP_BUF_CLIENT_MIC_SELECT:
 		return kpb_set_micselect(dev, data, data_offset);
 	default:

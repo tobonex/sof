@@ -43,6 +43,7 @@ struct comp_buffer;
 	(KPB_SAMPLE_CONTAINER_SIZE(sw) / 8) * KPB_MAX_BUFF_TIME * \
 	 (channels_number))
 #define KPB_MAX_NO_OF_CLIENTS 2
+#define KPB_MAX_SINK_CNT (1 + KPB_MAX_NO_OF_CLIENTS)
 #define KPB_NO_OF_HISTORY_BUFFERS 2 /**< no of internal buffers */
 #define KPB_ALLOCATION_STEP 0x100
 #define KPB_NO_OF_MEM_POOLS 3
@@ -160,6 +161,8 @@ struct history_data {
 };
 
 enum ipc4_kpb_module_config_params {
+	//! Configure the module ID's which would be part of the Fast mode tasks
+	KP_BUF_CFG_FM_MODULE = 1,
 	/* Mic selector for client - sets microphone id for real time sink mic selector
 	 * IPC4-compatible ID - please do not change the number
 	 */
@@ -170,6 +173,21 @@ enum ipc4_kpb_module_config_params {
 struct kpb_micselector_config {
 	/* channel bit set to 1 implies channel selection */
 	uint32_t mask;
+};
+
+struct kpb_task_params
+{
+    /*!
+      If largeconfigst is set to KP_POS_IN_BUFFER then number of modules must
+      correspond to number of modules between kpb and copier attached to host
+      dma. Once draining path is configured, cannot be reinitialized/changed.
+    */
+    uint32_t        number_of_modules;
+    struct
+    {
+        uint16_t    module_id;
+        uint16_t    instance_id;
+    }               module_instance_ids[1];
 };
 #ifdef UNIT_TEST
 void sys_comp_kpb_init(void);
