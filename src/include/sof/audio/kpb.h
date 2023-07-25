@@ -160,14 +160,15 @@ struct history_data {
 	struct history_buffer *c_hb; /**< current buffer used for writing */
 };
 
-enum ipc4_kpb_module_config_params {
+/* moved to ipc4/kpb.h */
+/*enum ipc4_kpb_module_config_params {
 	//! Configure the module ID's which would be part of the Fast mode tasks
 	KP_BUF_CFG_FM_MODULE = 1,
-	/* Mic selector for client - sets microphone id for real time sink mic selector
+	 Mic selector for client - sets microphone id for real time sink mic selector
 	 * IPC4-compatible ID - please do not change the number
-	 */
+
 	KP_BUF_CLIENT_MIC_SELECT = 11,
-};
+};*/
 
 /* Stores KPB mic selector config */
 struct kpb_micselector_config {
