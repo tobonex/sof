@@ -67,6 +67,9 @@ struct comp_buffer;
  * i.e. number of max supported channels - reference channels)
  */
 #define KPB_MAX_MICSEL_CHANNELS 4
+/* Used in FMT */
+#define FAST_MODE_TASK_MAX_MODULES_COUNT 16
+static const uint32_t REALTIME_PIN_ID = 0;
 
 /** All states below as well as relations between them are documented in
  * the sof-dosc in [kpbm-state-diagram]
@@ -191,11 +194,16 @@ struct kpb_task_params
     }               module_instance_ids[1];
 };
 
+//fmt namespace:
 #define FAST_MODE_TASK_MAX_LIST_COUNT 5
-#define FAST_MODE_TASK_MAX_MODULES_COUNT 16
+struct fast_mode_task{
+	struct device_list* device_list_ [FAST_MODE_TASK_MAX_LIST_COUNT];
+};
 
-static const uint32_t REALTIME_PIN_ID = 0;
-
+/* Devicelist type
+ * Originally ACE KPB used Bi-dir lists to store modules for FMT. It is possible that lists are
+ * not necessary, but in case it might be wrong, here we use an array
+ * with a list interface to switch it to a list easily. */
 typedef struct comp_dev* devicelist_item;
 
 struct device_list{
@@ -203,6 +211,7 @@ struct device_list{
 	size_t count; //number of items AND index of next empty box
 };
 
+/* KpbFastModeTaskModulesList Namespace */
 struct kpb_fmt_dev_list{
 	/*! Array of  all module lists to be processed. */
 	struct device_list device_list_[FAST_MODE_TASK_MAX_LIST_COUNT];
@@ -216,9 +225,6 @@ struct kpb_fmt_dev_list{
 	struct comp_dev* kpb_mi_ptr_;
 };
 
-struct fast_mode_task{
-	struct device_list* device_list_ [FAST_MODE_TASK_MAX_LIST_COUNT];
-};
 
 
 #ifdef UNIT_TEST

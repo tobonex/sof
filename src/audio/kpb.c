@@ -73,6 +73,9 @@ DECLARE_TR_CTX(kpb_tr, SOF_UUID(kpb_uuid), LOG_LEVEL_INFO);
 DECLARE_SOF_UUID("kpb-task", kpb_task_uuid, 0xe50057a5, 0x8b27, 0x4db4,
 		 0xbd, 0x79, 0x9a, 0x63, 0x9c, 0xee, 0x5f, 0x50);
 
+/* FMT structures, eventually should be moved to their respective files */
+
+
 /* KPB private data, runtime data */
 struct comp_data {
 	enum kpb_state state; /**< current state of KPB component */
@@ -142,6 +145,20 @@ static inline bool validate_host_params(struct comp_dev *dev,
 					size_t hb_size_req);
 static inline void kpb_change_state(struct comp_data *kpb,
 				    enum kpb_state state);
+/* KpbFastModeTaskModulesList Namespace */
+static inline int AllocFmtModuleListItem(
+		struct kpb_fmt_dev_list* fmt_device_list,
+		struct comp_dev* mi_ptr, devicelist_item** item);
+static void ClearFmtModulesList(
+	 struct kpb_fmt_dev_list* fmt_device_list,
+	 uint32_t outpin_idx);
+static int PrepareFmtModulesList(
+	struct comp_dev* kpb_dev,
+	uint32_t outpin_idx, const struct kpb_task_params* modules_to_prepare,
+	struct comp_dev** last_copier_mi);
+/* FMT Namespace */
+static int RegisterModulesList(struct device_list* new_list, size_t list_idx);
+static int UnregisterModulesList(struct device_list* list_to_remove, size_t list_idx);
 
 static uint64_t kpb_task_deadline(void *data)
 {
@@ -2383,6 +2400,7 @@ static int kpb_set_micselect(struct comp_dev *dev, const void *data,
 	return 0;
 }
 
+
 int devicelist_push(struct device_list* devlist, devicelist_item dev){
 	if(devlist->count != FAST_MODE_TASK_MAX_MODULES_COUNT){
 		devlist->devs[devlist->count] = dev;
@@ -2392,28 +2410,25 @@ int devicelist_push(struct device_list* devlist, devicelist_item dev){
 	return -EINVAL;
 }
 
-int devicelist_reset(struct device_list* devlist){
+void devicelist_reset(struct device_list* devlist){
 	for(int i=0; i < FAST_MODE_TASK_MAX_MODULES_COUNT; i++){
 		devlist->devs[i] = NULL;
 	}
 	devlist->count = 0;
 }
 
-struct comp_dev* get_comp_dev_from_id(uint32_t module_id, uint32_t instance_id){
+static struct comp_dev* get_dev_from_mi_id(uint32_t module_id, uint32_t instance_id){
 	struct comp_dev *dev = NULL;
 
 	uint32_t comp_id = IPC4_COMP_ID(module_id, instance_id);
 	dev = ipc4_get_comp_dev(comp_id);
+	return dev;
 }
 
-void ClearFmtModulesList(
-	 struct kpb_fmt_dev_list* fmt_device_list,
-	 uint32_t outpin_idx);
 
 
 
-
-inline int AllocFmtModuleListItem(
+static inline int AllocFmtModuleListItem(
 		struct kpb_fmt_dev_list* fmt_device_list,
 		struct comp_dev* mi_ptr, devicelist_item** item)
 {
@@ -2444,7 +2459,8 @@ inline int AllocFmtModuleListItem(
 
 }
 
-int PrepareFmtModulesList(
+
+static int PrepareFmtModulesList(
 	struct comp_dev* kpb_dev,
 	uint32_t outpin_idx, const struct kpb_task_params* modules_to_prepare,
 	struct comp_dev** last_copier_mi)
@@ -2463,13 +2479,6 @@ int PrepareFmtModulesList(
 	struct comp_dev *dev = NULL;
 	struct kpb_fmt_dev_list* fmt_device_list = &((struct comp_data*)comp_get_drvdata(kpb_dev))->fmt_device_list;
 
-
-//    dsp_fw_mgmt::ModuleManager* module_manager =
-//    dsp_fw_mgmt::FirmwareManagerMng::GetMngInstanceWrapped()->GetModuleManager();
-//    ModuleInstance* mi = NULL;
-
-
-
 	if (modules_to_prepare->number_of_modules != 0)
 	{
 		fmt_device_list->kpb_list_item_[outpin_idx] = kpb_dev;
@@ -2483,7 +2492,7 @@ int PrepareFmtModulesList(
 	{
 		//instead of getmoduleinstance
 
-		dev = get_comp_dev_from_id(modules_to_prepare->module_instance_ids[module_desc_idx].module_id,
+		dev = get_dev_from_mi_id(modules_to_prepare->module_instance_ids[module_desc_idx].module_id,
 									modules_to_prepare->module_instance_ids[module_desc_idx].instance_id);
 
 		if (!dev)
@@ -2494,8 +2503,8 @@ int PrepareFmtModulesList(
 		ret = AllocFmtModuleListItem(fmt_device_list, dev, &new_list_item_ptr);
 		if(ret < 0)
 			return ret;
-		new_list_item_ptr = &dev;
-		ret = devicelist_push(fmt_device_list->device_list_, new_list_item_ptr);
+		*new_list_item_ptr = dev;
+		ret = devicelist_push(fmt_device_list->device_list_, *new_list_item_ptr);
 		if(ret < 0)
 			return ret;
 	}
@@ -2505,7 +2514,7 @@ int PrepareFmtModulesList(
 	return ret;
 }
 
-void ClearFmtModulesList(
+static void ClearFmtModulesList(
 	 struct kpb_fmt_dev_list* fmt_device_list,
 	 uint32_t outpin_idx)
 {
@@ -2519,7 +2528,9 @@ void ClearFmtModulesList(
 
 struct fast_mode_task fmt;
 
-int UnregisterModulesList(struct device_list* list_to_remove, size_t list_idx)
+
+
+static int UnregisterModulesList(struct device_list* list_to_remove, size_t list_idx)
 {
     if (list_to_remove == fmt.device_list_[list_idx])
     {
@@ -2535,7 +2546,7 @@ int UnregisterModulesList(struct device_list* list_to_remove, size_t list_idx)
 }
 
 /* Important: function below should be called only from within critical section (Goto KPB for more details) */
-int RegisterModulesList(struct device_list* new_list, size_t list_idx)
+static int RegisterModulesList(struct device_list* new_list, size_t list_idx)
 {
     if( !(list_idx < (sizeof(fmt.device_list_)/sizeof(fmt.device_list_[0])) ))
     	return -EINVAL;
@@ -2546,7 +2557,7 @@ int RegisterModulesList(struct device_list* new_list, size_t list_idx)
     	fmt.device_list_[list_idx] = new_list;
         return 0;
     }
-    if (new_list == &fmt.device_list_[list_idx])
+    if (new_list == fmt.device_list_[list_idx])
     {
         /* Already registered. */
         return 0;
