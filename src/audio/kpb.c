@@ -2401,8 +2401,9 @@ static int kpb_set_micselect(struct comp_dev *dev, const void *data,
 }
 
 
-int devicelist_push(struct device_list* devlist, devicelist_item dev){
-	if(devlist->count != FAST_MODE_TASK_MAX_MODULES_COUNT){
+
+int devicelist_push(struct device_list* devlist, devicelist_item* dev){
+	if(devlist->count != DEVICE_LIST_SIZE){
 		devlist->devs[devlist->count] = dev;
 		devlist->count++;
 		return 0;
@@ -2410,12 +2411,21 @@ int devicelist_push(struct device_list* devlist, devicelist_item dev){
 	return -EINVAL;
 }
 
-void devicelist_reset(struct device_list* devlist){
-	for(int i=0; i < FAST_MODE_TASK_MAX_MODULES_COUNT; i++){
+void devicelist_reset(struct device_list* devlist, bool remove_items){
+	/* deallocate items */
+	if(remove_items){
+		for(int i=0; i < DEVICE_LIST_SIZE; i++){
+			*(devlist->devs[i]) = NULL;
+		}
+	}
+
+	/* zero the pointers */
+	for(int i=0; i < DEVICE_LIST_SIZE; i++){
 		devlist->devs[i] = NULL;
 	}
 	devlist->count = 0;
 }
+
 
 static struct comp_dev* get_dev_from_mi_id(uint32_t module_id, uint32_t instance_id){
 	struct comp_dev *dev = NULL;
@@ -2482,21 +2492,23 @@ static int PrepareFmtModulesList(
 	if (modules_to_prepare->number_of_modules != 0)
 	{
 		fmt_device_list->kpb_list_item_[outpin_idx] = kpb_dev;
-		ret = devicelist_push(fmt_device_list->device_list_ ,fmt_device_list->kpb_list_item_[outpin_idx]);
+		ret = devicelist_push(&fmt_device_list->device_list_[outpin_idx] ,&fmt_device_list->kpb_list_item_[outpin_idx]);
 		if(ret < 0)
 			return ret;
 	}
 
+
 	for (size_t module_desc_idx = 0; module_desc_idx < modules_to_prepare->number_of_modules;
 		++module_desc_idx)
 	{
-		//instead of getmoduleinstance
+
+
 
 		dev = get_dev_from_mi_id(modules_to_prepare->module_instance_ids[module_desc_idx].module_id,
 									modules_to_prepare->module_instance_ids[module_desc_idx].instance_id);
 
 		if (!dev)
-			return IPC4_MOD_INVALID_ID;
+			return -EINVAL;
 
 		devicelist_item* new_list_item_ptr;
 
@@ -2504,7 +2516,7 @@ static int PrepareFmtModulesList(
 		if(ret < 0)
 			return ret;
 		*new_list_item_ptr = dev;
-		ret = devicelist_push(fmt_device_list->device_list_, *new_list_item_ptr);
+		ret = devicelist_push(&fmt_device_list->device_list_[outpin_idx], new_list_item_ptr);
 		if(ret < 0)
 			return ret;
 	}
@@ -2521,7 +2533,7 @@ static void ClearFmtModulesList(
 	/* Note: this should be validated in layer above. */
 	assert(outpin_idx < KPB_MAX_SINK_CNT);
 	//ACE
-	devicelist_reset(&fmt_device_list->device_list_[outpin_idx]);
+	devicelist_reset(&fmt_device_list->device_list_[outpin_idx], true);
 
 
 }
@@ -2565,10 +2577,12 @@ static int RegisterModulesList(struct device_list* new_list, size_t list_idx)
     return -EINVAL;//was ADSP_ALREADY_IN_USE;
 }
 
+
 static int ConfigureFastModeTask(struct comp_dev *kpb_dev, const struct kpb_task_params* cfg, size_t pin)
 {
     if(!(cfg != NULL && pin < KPB_MAX_SINK_CNT && pin != REALTIME_PIN_ID && cfg->module_instance_ids > 0))
     	return -EINVAL;
+
 
     int ret= 0;
     // not sure if this var is needed for anything
@@ -2596,6 +2610,7 @@ static int ConfigureFastModeTask(struct comp_dev *kpb_dev, const struct kpb_task
     return ret;
 }
 
+
 static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 				bool first_block,
 				bool last_block,
@@ -2622,12 +2637,12 @@ static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
          * Other solution would be for driver to allways send 12 bytes even if there is no module
          * on list - which is also not very elegant. */
         const struct kpb_task_params* cfg = NULL;
-        uint32_t nr_of_modules = *(uint32_t *)data; //get first dword from payload, dword size field
+        uint32_t nr_of_modules = *(uint32_t *)ba->data; //get first dword from payload, dword size field
         uint32_t outpin_id = extended_param_id.part.parameter_instance;
 
         if (nr_of_modules != 0)
         {
-            cfg = (struct kpb_task_params *)data;
+            cfg = (struct kpb_task_params *)ba->data;
             if (ret  < 0)
             	return -EINVAL;
         }

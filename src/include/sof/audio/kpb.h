@@ -197,6 +197,7 @@ struct kpb_task_params
 //fmt namespace:
 #define FAST_MODE_TASK_MAX_LIST_COUNT 5
 struct fast_mode_task{
+	/*! Array of pointers to all module lists to be processed. */
 	struct device_list* device_list_ [FAST_MODE_TASK_MAX_LIST_COUNT];
 };
 
@@ -206,10 +207,51 @@ struct fast_mode_task{
  * with a list interface to switch it to a list easily. */
 typedef struct comp_dev* devicelist_item;
 
+
+/* the +1 is here because we also push the kbp device
+ *  handle in addition to the max number of modules */
+#define DEVICE_LIST_SIZE FAST_MODE_TASK_MAX_MODULES_COUNT + 1
+
 struct device_list{
-	devicelist_item devs[FAST_MODE_TASK_MAX_MODULES_COUNT];
+
+	devicelist_item* devs[DEVICE_LIST_SIZE];
 	size_t count; //number of items AND index of next empty box
 };
+
+/*
+ *
+ *
+ *	KPB FMT config set steps:
+ *	1. Get dev_ids of module instances from IPC
+ *	2. Alloc this kpb module instance on kpb_list_item_ , save address of where it was allocated
+ *	3. Push the address on device_list_ .
+ *	2. For each dev_id get device handler(module instance)
+ *	3. Alloc device handler in modules_list_item, save address of where it was allocated
+ *	4. Register this address in
+ *
+ *
+ *
+ * 		DEVS
+ * 		  ^
+ * 		  |
+ * 		modules_list_item(dev* )
+ *		  ^
+ *		  |
+ *		device_list_(dev*) ???
+ *		  ^
+ *		  |
+ *		fmt.device_list_(dev**)
+ *
+ *
+ *		modules_list_item(dev* )
+ *			^
+ *			|
+ *		devicelist_item* new_list_item_ptr; (dev**)
+ *
+ */
+
+
+
 
 /* KpbFastModeTaskModulesList Namespace */
 struct kpb_fmt_dev_list{

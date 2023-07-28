@@ -809,7 +809,7 @@ static int ipc4_get_large_config_module_instance(struct ipc4_message_request *ip
 
 	return ret;
 }
-
+__attribute__((optnone))
 static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
 	uint32_t instance_id, bool init_block, bool final_block,
 	uint32_t data_off_size, const char *data)
@@ -853,7 +853,10 @@ static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
 			/* This means that there is indeed nothing to be done here */
 			return IPC4_INVALID_CONFIG_DATA_STRUCT;
 		}
-
+//		volatile bool kek = true;
+//		while(kek){
+//
+//		}
 		while ((const uint8_t *)tlv < end_offset) {
 			const struct byte_array_simple ba = {
 					(uint8_t *)&tlv->param_data[0], tlv->param_size };
