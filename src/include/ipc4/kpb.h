@@ -20,7 +20,6 @@ struct ipc4_kpb_module_cfg {
 	struct ipc4_base_module_cfg base_cfg;
 } __packed __aligned(4);
 
-
 enum ipc4_kpb_module_config_params {
 	//! Configure the module ID's which would be part of the Fast mode tasks
 	KP_BUF_CFG_FM_MODULE = 1,

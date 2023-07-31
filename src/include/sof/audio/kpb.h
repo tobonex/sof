@@ -164,14 +164,7 @@ struct history_data {
 };
 
 /* moved to ipc4/kpb.h */
-/*enum ipc4_kpb_module_config_params {
-	//! Configure the module ID's which would be part of the Fast mode tasks
-	KP_BUF_CFG_FM_MODULE = 1,
-	 Mic selector for client - sets microphone id for real time sink mic selector
-	 * IPC4-compatible ID - please do not change the number
-
-	KP_BUF_CLIENT_MIC_SELECT = 11,
-};*/
+/* enum ipc4_kpb_module_config_params */
 
 /* Stores KPB mic selector config */
 struct kpb_micselector_config {
@@ -179,42 +172,40 @@ struct kpb_micselector_config {
 	uint32_t mask;
 };
 
-struct kpb_task_params
-{
-    /*!
-      If largeconfigst is set to KP_POS_IN_BUFFER then number of modules must
-      correspond to number of modules between kpb and copier attached to host
-      dma. Once draining path is configured, cannot be reinitialized/changed.
-    */
-    uint32_t        number_of_modules;
-    struct
-    {
-        uint16_t    module_id;
-        uint16_t    instance_id;
-    }               module_instance_ids[1];
+struct kpb_task_params {
+	/* If largeconfigset is set to KP_POS_IN_BUFFER then number of modules must
+	 * correspond to number of modules between kpb and copier attached to hostdma.
+	 * Once draining path is configured, cannot be reinitialized/changed.
+	 */
+	uint32_t        number_of_modules;
+	struct {
+		uint16_t module_id;
+		uint16_t instance_id;
+	}		    module_instance_ids[1];
 };
 
 //fmt namespace:
 #define FAST_MODE_TASK_MAX_LIST_COUNT 5
+
 struct fast_mode_task{
 	/*! Array of pointers to all module lists to be processed. */
-	struct device_list* device_list_ [FAST_MODE_TASK_MAX_LIST_COUNT];
+	struct device_list *device_list_[FAST_MODE_TASK_MAX_LIST_COUNT];
 };
 
 /* Devicelist type
  * Originally ACE KPB used Bi-dir lists to store modules for FMT. It is possible that lists are
  * not necessary, but in case it might be wrong, here we use an array
- * with a list interface to switch it to a list easily. */
-typedef struct comp_dev* devicelist_item;
-
+ * with a list interface to switch it to a list easily.
+ */
+typedef struct comp_dev *devicelist_item;
 
 /* the +1 is here because we also push the kbp device
- *  handle in addition to the max number of modules */
-#define DEVICE_LIST_SIZE FAST_MODE_TASK_MAX_MODULES_COUNT + 1
+ * handle in addition to the max number of modules
+ */
+#define DEVICE_LIST_SIZE (FAST_MODE_TASK_MAX_MODULES_COUNT + 1)
 
-struct device_list{
-
-	devicelist_item* devs[DEVICE_LIST_SIZE];
+struct device_list {
+	devicelist_item *devs[DEVICE_LIST_SIZE];
 	size_t count; //number of items AND index of next empty box
 };
 
@@ -231,13 +222,13 @@ struct device_list{
  *
  *
  *
- * 		DEVS
- * 		  ^
- * 		  |
- * 		modules_list_item(dev* )
+ *		DEVS
  *		  ^
  *		  |
- *		device_list_(dev*) ???
+ *		modules_list_item(dev* )
+ *		  ^
+ *		  |
+ *		device_list_(dev**)
  *		  ^
  *		  |
  *		fmt.device_list_(dev**)
@@ -249,12 +240,10 @@ struct device_list{
  *		devicelist_item* new_list_item_ptr; (dev**)
  *
  */
-
-
-
+changethis^
 
 /* KpbFastModeTaskModulesList Namespace */
-struct kpb_fmt_dev_list{
+struct kpb_fmt_dev_list {
 	/*! Array of  all module lists to be processed. */
 	struct device_list device_list_[FAST_MODE_TASK_MAX_LIST_COUNT];
 	//jeden dla każdego sinkpinu
@@ -264,10 +253,8 @@ struct kpb_fmt_dev_list{
 
 	devicelist_item modules_list_item_[FAST_MODE_TASK_MAX_MODULES_COUNT];
 
-	struct comp_dev* kpb_mi_ptr_;
+	struct comp_dev *kpb_mi_ptr_;
 };
-
-
 
 #ifdef UNIT_TEST
 void sys_comp_kpb_init(void);

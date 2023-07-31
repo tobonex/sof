@@ -809,10 +809,11 @@ static int ipc4_get_large_config_module_instance(struct ipc4_message_request *ip
 
 	return ret;
 }
-__attribute__((optnone))
+
 static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
-	uint32_t instance_id, bool init_block, bool final_block,
-	uint32_t data_off_size, const char *data)
+						  uint32_t instance_id, bool init_block,
+						  bool final_block,
+						  uint32_t data_off_size, const char *data)
 {
 	struct comp_dev *dev = NULL;
 	int ret;
@@ -865,7 +866,7 @@ static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
 				final_block, data_off_size, (uint8_t *)(&ba));
 			if (ret < 0) {
 				ipc_cmd_err(&ipc_tr, "failed to set large_config_module_instance %x : %x",
-					(uint32_t)module_id, (uint32_t)instance_id);
+					    (uint32_t)module_id, (uint32_t)instance_id);
 				ret = IPC4_INVALID_RESOURCE_ID;
 				return ret;
 			}
@@ -929,15 +930,17 @@ static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ip
 	/* check for vendor param first */
 	if (config.extension.r.large_param_id == VENDOR_CONFIG_PARAM) {
 		ret = ipc4_set_vendor_config_module_instance((uint32_t)config.primary.r.module_id,
-			(uint32_t)config.primary.r.instance_id,
-			config.extension.r.init_block, config.extension.r.final_block,
-			config.extension.r.data_off_size, (const char *)MAILBOX_HOSTBOX_BASE);
+							     (uint32_t)config.primary.r.instance_id,
+							     config.extension.r.init_block,
+							     config.extension.r.final_block,
+							     config.extension.r.data_off_size,
+							     (const char *)MAILBOX_HOSTBOX_BASE);
 	} else {
 		if (config.primary.r.module_id) {
 			uint32_t comp_id;
 
 			comp_id = IPC4_COMP_ID(config.primary.r.module_id,
-				config.primary.r.instance_id);
+					       config.primary.r.instance_id);
 			dev = ipc4_get_comp_dev(comp_id);
 			if (!dev)
 				return IPC4_MOD_INVALID_ID;
@@ -948,12 +951,14 @@ static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ip
 		}
 
 		ret = drv->ops.set_large_config(dev, config.extension.r.large_param_id,
-			config.extension.r.init_block, config.extension.r.final_block,
-			config.extension.r.data_off_size, (const char *)MAILBOX_HOSTBOX_BASE);
+						config.extension.r.init_block,
+						config.extension.r.final_block,
+						config.extension.r.data_off_size,
+						(const char *)MAILBOX_HOSTBOX_BASE);
 		if (ret < 0) {
 			ipc_cmd_err(&ipc_tr, "failed to set large_config_module_instance %x : %x",
-						(uint32_t)config.primary.r.module_id,
-						(uint32_t)config.primary.r.instance_id);
+				    (uint32_t)config.primary.r.module_id,
+				    (uint32_t)config.primary.r.instance_id);
 			ret = IPC4_INVALID_RESOURCE_ID;
 		}
 	}
