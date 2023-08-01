@@ -184,7 +184,7 @@ struct kpb_task_params {
 	}		    dev_ids[1];
 };
 
-//fmt namespace:
+/* fmt namespace: */
 #define FAST_MODE_TASK_MAX_LIST_COUNT 5
 
 struct fast_mode_task {
@@ -192,7 +192,7 @@ struct fast_mode_task {
 	struct device_list *device_list_[FAST_MODE_TASK_MAX_LIST_COUNT];
 };
 
-/* the +1 is here because we also push the kbp device
+/* The +1 is here because we also push the kbp device
  * handle in addition to the max number of modules
  */
 #define DEVICE_LIST_SIZE (FAST_MODE_TASK_MAX_MODULES_COUNT + 1)
@@ -202,8 +202,6 @@ struct fast_mode_task {
  * not necessary, but in case it might be wrong, here we use an array
  * with a list interface to switch it to a list easily.
  */
-//typedef struct comp_dev *devicelist_item;
-
 struct device_list {
 	struct comp_dev **devs[DEVICE_LIST_SIZE];
 	size_t count; //number of items AND index of next empty box
@@ -214,41 +212,33 @@ struct device_list {
  *
  *	KPB FMT config set steps:
  *	1. Get dev_ids of module instances from IPC
- *	2. Alloc this kpb module instance on kpb_list_item_ , save address of where it was allocated
- *	3. Push the address on device_list_ .
+ *	2. Alloc this kpb module instance on kpb_list_item_, save address of where it was allocated
+ *	3. Push the address on dev_list.device_list_
  *	2. For each dev_id get device handler(module instance)
  *	3. Alloc device handler in modules_list_item, save address of where it was allocated
- *	4. Register this address in
+ *	4. Register this address in fmt.device_list_
  *
+ *	Pointer structure:
  *
- *
- *		DEVS
+ *		COMP_DEVS
  *		  ^
  *		  |
- *		modules_list_item(dev* )
+ *		dev_list.modules_list_item(comp_dev* )
  *		  ^
  *		  |
- *		device_list_(dev**)
+ *		dev_list.device_list_(comp_dev**)
  *		  ^
  *		  |
- *		fmt.device_list_(dev**)
+ *		fmt.device_list_(device_list_*)
  *
- *
- *		modules_list_item(dev* )
- *			^
- *			|
- *		devicelist_item* new_list_item_ptr; (dev**)
  *
  */
-typedef int changethisuphere;
 
 /* KpbFastModeTaskModulesList Namespace */
 struct kpb_fmt_dev_list {
 	/*! Array of  all module lists to be processed. */
 	struct device_list device_list_[FAST_MODE_TASK_MAX_LIST_COUNT];
-	//jeden dla każdego sinkpinu
-	//to jest element listy dwukierunkowej, ma tam sam element i też wskaźniki na next itp
-	//to jest chyba lista modułów kpb gdzie indeksy odpowiadają tym z devicelist?
+	//One for each sinkpin.
 	struct comp_dev *kpb_list_item_[KPB_MAX_SINK_CNT];
 
 	struct comp_dev *modules_list_item_[FAST_MODE_TASK_MAX_MODULES_COUNT];

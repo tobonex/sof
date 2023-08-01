@@ -2554,25 +2554,25 @@ static int ConfigureFastModeTask(struct comp_dev *kpb_dev, const struct kpb_task
 		return -EINVAL;
 
 	int ret = 0;
-	// not sure if this var is needed for anything
+	/* not sure if this var is needed for anything */
 	struct comp_dev *last_copier_ptr = NULL;
-	struct kpb_fmt_dev_list *fmt_device_list =
-			&((struct comp_data *)comp_get_drvdata(kpb_dev))->fmt_device_list;
-	struct fast_mode_task *fmt =
-			&((struct comp_data *)comp_get_drvdata(kpb_dev))->fmt;
+	struct comp_data *priv_data = (struct comp_data *)comp_get_drvdata(kpb_dev);
 
-	/* If this fail it might be serious missconfig */
-	ret = UnregisterModulesList(fmt, &fmt_device_list->device_list_[pin], pin);
+	ret = UnregisterModulesList(&priv_data->fmt,
+				    &priv_data->fmt_device_list.device_list_[pin],
+				    pin);
 	assert(ret == 0);
 
-	ClearFmtModulesList(fmt_device_list, pin);
+	ClearFmtModulesList(&priv_data->fmt_device_list, pin);
 
 	/* When modules count IS 0 we only need to remove modules from Fast Mode. */
 	if (cfg && cfg->number_of_modules > 0) {
 		if (ret == 0)
 			ret = PrepareFmtModulesList(kpb_dev, pin, cfg, &last_copier_ptr);
 		if (ret == 0)
-			ret = RegisterModulesList(fmt, &fmt_device_list->device_list_[pin], pin);
+			ret = RegisterModulesList(&priv_data->fmt,
+						  &priv_data->fmt_device_list.device_list_[pin],
+						  pin);
 	}
 	return ret;
 }
@@ -2597,7 +2597,8 @@ static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 
 	switch (extended_param_id.part.parameter_type) {
 	case KP_BUF_CFG_FM_MODULE:
-	/* Modules count equals 0 is a special case in which we want to clear list for given pin.
+	/* ACE comment:
+	 * Modules count equals 0 is a special case in which we want to clear list for given pin.
 	 * In case of that however dataAs<KpBufferingTaskParams> will return NULL.
 	 * To avoid this we first checking only modules count first and full config after that.
 	 * Other solution would be for driver to allways send 12 bytes even if there is no module
