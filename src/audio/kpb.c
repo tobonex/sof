@@ -2440,7 +2440,7 @@ static inline int AllocFmtModuleListItem(struct kpb_fmt_dev_list *fmt_device_lis
 	//add module to first available field
 	for (size_t module_slot_idx = 0; module_slot_idx < FAST_MODE_TASK_MAX_MODULES_COUNT;
 	     ++module_slot_idx){
-		if (fmt_device_list->modules_list_item_[module_slot_idx]) {
+		if (!fmt_device_list->modules_list_item_[module_slot_idx]) {
 			fmt_device_list->modules_list_item_[module_slot_idx] = mi_ptr;
 			*item = &fmt_device_list->modules_list_item_[module_slot_idx];
 			return 0;
@@ -2454,11 +2454,11 @@ static int PrepareFmtModulesList(struct comp_dev *kpb_dev,
 				 const struct kpb_task_params *modules_to_prepare,
 				 struct comp_dev **last_copier_mi)
 {
-	if (kpb_dev)
+	if (!kpb_dev)
 		return -EINVAL;
-	if (modules_to_prepare)
+	if (!modules_to_prepare)
 		return -EINVAL;
-	if (last_copier_mi)
+	if (!last_copier_mi)
 		return -EINVAL;
 	if (outpin_idx >= KPB_MAX_SINK_CNT)
 		return -EINVAL;
