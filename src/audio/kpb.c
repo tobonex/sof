@@ -107,6 +107,7 @@ struct comp_data {
 	uint32_t offsets[KPB_MAX_MICSEL_CHANNELS];
 	struct kpb_micselector_config mic_sel;
 	struct kpb_fmt_dev_list fmt_device_list;
+	struct fast_mode_task fmt;
 
 #if CONFIG_AMS
 	uint32_t kpd_uuid_id;
@@ -151,8 +152,10 @@ static int PrepareFmtModulesList(struct comp_dev *kpb_dev, uint32_t outpin_idx,
 				 const struct kpb_task_params *modules_to_prepare,
 				 struct comp_dev **last_copier_mi);
 /* FMT Namespace */
-static int RegisterModulesList(struct device_list *new_list, size_t list_idx);
-static int UnregisterModulesList(struct device_list *list_to_remove, size_t list_idx);
+static int RegisterModulesList(struct fast_mode_task *fmt,
+			       struct device_list *new_list, size_t list_idx);
+static int UnregisterModulesList(struct fast_mode_task *fmt,
+				 struct device_list *list_to_remove, size_t list_idx);
 
 static uint64_t kpb_task_deadline(void *data)
 {
@@ -2505,15 +2508,16 @@ static void ClearFmtModulesList(struct kpb_fmt_dev_list *fmt_device_list,
 	devicelist_reset(&fmt_device_list->device_list_[outpin_idx], true);
 }
 
-struct fast_mode_task fmt    ;
+//struct fast_mode_task fmt;
 
-static int UnregisterModulesList(struct device_list *list_to_remove, size_t list_idx)
+static int UnregisterModulesList(struct fast_mode_task *fmt,
+				 struct device_list *list_to_remove, size_t list_idx)
 {
-	if (list_to_remove == fmt.device_list_[list_idx]) {
-		fmt.device_list_[list_idx] = NULL;
+	if (list_to_remove == fmt->device_list_[list_idx]) {
+		fmt->device_list_[list_idx] = NULL;
 		return 0;
 	}
-	if (!fmt.device_list_[list_idx]) {
+	if (!fmt->device_list_[list_idx]) {
 		/* Nothing to do here */
 		return 0;
 	}
@@ -2524,17 +2528,18 @@ static int UnregisterModulesList(struct device_list *list_to_remove, size_t list
  * Important: function below should be called only from within critical section
  * (Goto KPB for more details)
  */
-static int RegisterModulesList(struct device_list *new_list, size_t list_idx)
+static int RegisterModulesList(struct fast_mode_task *fmt,
+			       struct device_list *new_list, size_t list_idx)
 {
-	if (list_idx >= ARRAY_SIZE(fmt.device_list_))
+	if (list_idx >= ARRAY_SIZE(fmt->device_list_))
 		return -EINVAL;
 
 	/* Check if slot is free */
-	if (!fmt.device_list_[list_idx]) {
-		fmt.device_list_[list_idx] = new_list;
+	if (!fmt->device_list_[list_idx]) {
+		fmt->device_list_[list_idx] = new_list;
 		return 0;
 	}
-	if (new_list == fmt.device_list_[list_idx]) {
+	if (new_list == fmt->device_list_[list_idx]) {
 		/* Already registered. */
 		return 0;
 	}
@@ -2553,9 +2558,11 @@ static int ConfigureFastModeTask(struct comp_dev *kpb_dev, const struct kpb_task
 	struct comp_dev *last_copier_ptr = NULL;
 	struct kpb_fmt_dev_list *fmt_device_list =
 			&((struct comp_data *)comp_get_drvdata(kpb_dev))->fmt_device_list;
+	struct fast_mode_task *fmt =
+			&((struct comp_data *)comp_get_drvdata(kpb_dev))->fmt;
 
 	/* If this fail it might be serious missconfig */
-	ret = UnregisterModulesList(&fmt_device_list->device_list_[pin], pin);
+	ret = UnregisterModulesList(fmt, &fmt_device_list->device_list_[pin], pin);
 	assert(ret == 0);
 
 	ClearFmtModulesList(fmt_device_list, pin);
@@ -2565,7 +2572,7 @@ static int ConfigureFastModeTask(struct comp_dev *kpb_dev, const struct kpb_task
 		if (ret == 0)
 			ret = PrepareFmtModulesList(kpb_dev, pin, cfg, &last_copier_ptr);
 		if (ret == 0)
-			ret = RegisterModulesList(&fmt_device_list->device_list_[pin], pin);
+			ret = RegisterModulesList(fmt, &fmt_device_list->device_list_[pin], pin);
 	}
 	return ret;
 }
