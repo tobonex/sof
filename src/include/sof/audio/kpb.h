@@ -69,7 +69,7 @@ struct comp_buffer;
 #define KPB_MAX_MICSEL_CHANNELS 4
 /* Used in FMT */
 #define FAST_MODE_TASK_MAX_MODULES_COUNT 16
-static const uint32_t REALTIME_PIN_ID = 0;
+static const uint32_t REALTIME_PIN_ID; //= 0;
 
 /** All states below as well as relations between them are documented in
  * the sof-dosc in [kpbm-state-diagram]
@@ -181,31 +181,31 @@ struct kpb_task_params {
 	struct {
 		uint16_t module_id;
 		uint16_t instance_id;
-	}		    module_instance_ids[1];
+	}		    dev_ids[1];
 };
 
 //fmt namespace:
 #define FAST_MODE_TASK_MAX_LIST_COUNT 5
 
-struct fast_mode_task{
+struct fast_mode_task {
 	/*! Array of pointers to all module lists to be processed. */
 	struct device_list *device_list_[FAST_MODE_TASK_MAX_LIST_COUNT];
 };
-
-/* Devicelist type
- * Originally ACE KPB used Bi-dir lists to store modules for FMT. It is possible that lists are
- * not necessary, but in case it might be wrong, here we use an array
- * with a list interface to switch it to a list easily.
- */
-typedef struct comp_dev *devicelist_item;
 
 /* the +1 is here because we also push the kbp device
  * handle in addition to the max number of modules
  */
 #define DEVICE_LIST_SIZE (FAST_MODE_TASK_MAX_MODULES_COUNT + 1)
 
+/* Devicelist type
+ * Originally ACE KPB used Bi-dir lists to store modules for FMT. It is possible that lists are
+ * not necessary, but in case it might be wrong, here we use an array
+ * with a list interface to switch it to a list easily.
+ */
+//typedef struct comp_dev *devicelist_item;
+
 struct device_list {
-	devicelist_item *devs[DEVICE_LIST_SIZE];
+	struct comp_dev **devs[DEVICE_LIST_SIZE];
 	size_t count; //number of items AND index of next empty box
 };
 
@@ -240,7 +240,7 @@ struct device_list {
  *		devicelist_item* new_list_item_ptr; (dev**)
  *
  */
-changethis^
+typedef int changethisuphere;
 
 /* KpbFastModeTaskModulesList Namespace */
 struct kpb_fmt_dev_list {
@@ -249,9 +249,9 @@ struct kpb_fmt_dev_list {
 	//jeden dla każdego sinkpinu
 	//to jest element listy dwukierunkowej, ma tam sam element i też wskaźniki na next itp
 	//to jest chyba lista modułów kpb gdzie indeksy odpowiadają tym z devicelist?
-	devicelist_item kpb_list_item_[KPB_MAX_SINK_CNT];
+	struct comp_dev *kpb_list_item_[KPB_MAX_SINK_CNT];
 
-	devicelist_item modules_list_item_[FAST_MODE_TASK_MAX_MODULES_COUNT];
+	struct comp_dev *modules_list_item_[FAST_MODE_TASK_MAX_MODULES_COUNT];
 
 	struct comp_dev *kpb_mi_ptr_;
 };
