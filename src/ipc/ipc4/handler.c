@@ -952,6 +952,7 @@ static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ip
 		ret = drv->ops.set_large_config(dev, config.extension.r.large_param_id,
 			config.extension.r.init_block, config.extension.r.final_block,
 			config.extension.r.data_off_size, (const char *)MAILBOX_HOSTBOX_BASE);
+
 		if (ret < 0) {
 			ipc_cmd_err(&ipc_tr, "failed to set large_config_module_instance %x : %x",
 				    (uint32_t)config.primary.r.module_id,
