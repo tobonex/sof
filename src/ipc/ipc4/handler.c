@@ -810,6 +810,100 @@ static int ipc4_get_large_config_module_instance(struct ipc4_message_request *ip
 	return ret;
 }
 
+static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
+						  uint32_t instance_id,
+						  bool init_block,
+						  bool final_block,
+						  uint32_t data_off_size,
+						  const char *data)
+{
+	struct comp_dev *dev = NULL;
+	int ret;
+	const struct comp_driver *drv = ipc4_get_comp_drv(module_id);
+
+	if (module_id) {
+		uint32_t comp_id;
+
+		comp_id = IPC4_COMP_ID(module_id, instance_id);
+		dev = ipc4_get_comp_dev(comp_id);
+		if (!dev)
+			return IPC4_MOD_INVALID_ID;
+
+		/* Pass IPC to target core */
+		if (!cpu_is_me(dev->ipc_config.core))
+			return ipc4_process_on_core(dev->ipc_config.core, false);
+	}
+
+	if (init_block && final_block) { // bursted configs
+		const struct ipc4_mod_conf_param *tlv = (struct ipc4_mod_conf_param *)data;
+		/* if there is no payload in this large config set
+		 * (4 bytes param_id | 4 bytes param_size=0 | no param_data)
+		 * then we fail
+		 */
+		if (data_off_size < sizeof(struct ipc4_mod_conf_param))
+			return IPC4_ERROR_INVALID_PARAM;
+
+		/* ===Iterate over payload===
+		 * Payload can have multiple ipc4_mod_conf_param structures inside,
+		 * You can find how many by checking payload size (data_off_size)
+		 * Here we just set pointer end_offset to the end of data
+		 * and iterate until we reach that
+		 */
+
+		const uint8_t *end_offset = data + data_off_size;
+
+		if ((const uint8_t *)tlv >= end_offset) {
+			/* This means that there is indeed nothing to be done here */
+			return IPC4_INVALID_CONFIG_DATA_STRUCT;
+		}
+
+		while ((const uint8_t *)tlv < end_offset) {
+			const struct byte_array_simple ba = {
+					(uint8_t *)&tlv->param_data[0], tlv->param_size };
+
+			ret = drv->ops.set_large_config(dev, tlv->param_id, init_block,
+				final_block, data_off_size, (uint8_t *)(&ba));
+			if (ret < 0) {
+				ipc_cmd_err(&ipc_tr, "failed to set large_config_module_instance %x : %x",
+					    (uint32_t)module_id, (uint32_t)instance_id);
+				ret = IPC4_INVALID_RESOURCE_ID;
+				return ret;
+			}
+
+			/* Detect if param_size is not multiple of 4. If it is not,
+			 * then padding bytes have been inserted by driver so that IPC
+			 * total size is a multiple of 4. So we count them.
+			 */
+			uint32_t padding = (tlv->param_size % 4);
+
+			if (padding != 0)
+				padding = 4 - padding;
+
+			tlv = (struct ipc4_mod_conf_param *)((const uint8_t *)tlv +
+					TLV_DATA_OFFSET + tlv->param_size + padding);
+		}
+		return IPC4_SUCCESS;
+	}
+	/* else, !(init_block && final_block) */
+	const struct ipc4_mod_conf_param *tlv = (struct ipc4_mod_conf_param *)data;
+	struct byte_array_simple ba = {
+			(uint8_t *)&data, data_off_size };
+	uint32_t param_id = 0;
+
+	if (init_block) {
+		// for initial block use param_id from tlv, otherwise use built-in
+		// module instance handling mechanism (there is no default impl of
+		// caching large_param_id - @see LargeConfigSet)
+		param_id = tlv->param_id;
+		ba.data = (uint8_t *)ba.data + TLV_DATA_OFFSET;
+		ba.size = ba.size - TLV_DATA_OFFSET;
+		data_off_size -= TLV_DATA_OFFSET;
+	}
+	ret = drv->ops.set_large_config(dev, tlv->param_id, init_block,
+		final_block, data_off_size, (uint8_t *)(&ba));
+	return ret;
+}
+
 static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ipc4)
 {
 	struct ipc4_module_large_config config;
@@ -832,31 +926,39 @@ static int ipc4_set_large_config_module_instance(struct ipc4_message_request *ip
 	if (!drv->ops.set_large_config)
 		return IPC4_INVALID_REQUEST;
 
-	if (config.primary.r.module_id) {
-		uint32_t comp_id;
+	/* check for vendor param first */
+	if (config.extension.r.large_param_id == VENDOR_CONFIG_PARAM) {
+		ret = ipc4_set_vendor_config_module_instance((uint32_t)config.primary.r.module_id,
+							     (uint32_t)config.primary.r.instance_id,
+							     config.extension.r.init_block,
+							     config.extension.r.final_block,
+							     config.extension.r.data_off_size,
+							     (const char *)MAILBOX_HOSTBOX_BASE);
+	} else {
+		if (config.primary.r.module_id) {
+			uint32_t comp_id;
 
-		comp_id = IPC4_COMP_ID(config.primary.r.module_id, config.primary.r.instance_id);
-		dev = ipc4_get_comp_dev(comp_id);
-		if (!dev)
-			return IPC4_MOD_INVALID_ID;
+			comp_id = IPC4_COMP_ID(config.primary.r.module_id,
+					       config.primary.r.instance_id);
+			dev = ipc4_get_comp_dev(comp_id);
+			if (!dev)
+				return IPC4_MOD_INVALID_ID;
 
-		/* Pass IPC to target core */
-		if (!cpu_is_me(dev->ipc_config.core))
-			return ipc4_process_on_core(dev->ipc_config.core, false);
+			/* Pass IPC to target core */
+			if (!cpu_is_me(dev->ipc_config.core))
+				return ipc4_process_on_core(dev->ipc_config.core, false);
+		}
+
+		ret = drv->ops.set_large_config(dev, config.extension.r.large_param_id,
+			config.extension.r.init_block, config.extension.r.final_block,
+			config.extension.r.data_off_size, (const char *)MAILBOX_HOSTBOX_BASE);
+		if (ret < 0) {
+			ipc_cmd_err(&ipc_tr, "failed to set large_config_module_instance %x : %x",
+				    (uint32_t)config.primary.r.module_id,
+				    (uint32_t)config.primary.r.instance_id);
+			ret = IPC4_INVALID_RESOURCE_ID;
+		}
 	}
-
-	ret = drv->ops.set_large_config(dev, config.extension.r.large_param_id,
-					config.extension.r.init_block,
-					config.extension.r.final_block,
-					config.extension.r.data_off_size,
-					(const char *)MAILBOX_HOSTBOX_BASE);
-	if (ret < 0) {
-		ipc_cmd_err(&ipc_tr, "failed to set large_config_module_instance %x : %x",
-			    (uint32_t)config.primary.r.module_id,
-			    (uint32_t)config.primary.r.instance_id);
-		ret = IPC4_INVALID_RESOURCE_ID;
-	}
-
 	return ret;
 }
 
