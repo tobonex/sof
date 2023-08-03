@@ -2549,9 +2549,8 @@ static int RegisterModulesList(struct fast_mode_task *fmt,
 static int ConfigureFastModeTask(struct comp_dev *kpb_dev, const struct kpb_task_params *cfg,
 				 size_t pin)
 {
-	if (!cfg && pin >= KPB_MAX_SINK_CNT && pin == REALTIME_PIN_ID &&
-	    cfg->dev_ids <= 0)
-		return -EINVAL;
+	assert(cfg && pin < KPB_MAX_SINK_CNT && pin != REALTIME_PIN_ID &&
+	       cfg->module_instance_ids > 0);
 
 	int ret = 0;
 	/* not sure if this var is needed for anything */
@@ -2598,11 +2597,12 @@ static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 	switch (extended_param_id.part.parameter_type) {
 	case KP_BUF_CFG_FM_MODULE: {
 		/* ACE comment:
-		 * Modules count equals 0 is a special case in which we want to clear list for given pin.
-		 * In case of that however dataAs<KpBufferingTaskParams> will return NULL.
-		 * To avoid this we first checking only modules count first and full config after that.
-		 * Other solution would be for driver to allways send 12 bytes even if there is no module
-		 * on list - which is also not very elegant.
+		 * Modules count equals 0 is a special case in which we want to clear list for
+		 * given pin. In case of that however dataAs<KpBufferingTaskParams> will
+		 * return NULL. To avoid this we first checking only modules count first
+		 * and full config after that. Other solution would be for driver to always
+		 * send 12 bytes even if there is no module on list - which is also not
+		 * very elegant.
 		 */
 		const struct kpb_task_params *cfg = NULL;
 		/* get first dword from payload, dword size field */
