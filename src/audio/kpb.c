@@ -2596,30 +2596,30 @@ static int kpb_set_large_config(struct comp_dev *dev, uint32_t param_id,
 	extended_param_id.full = param_id;
 
 	switch (extended_param_id.part.parameter_type) {
-	case KP_BUF_CFG_FM_MODULE:
-	/* ACE comment:
-	 * Modules count equals 0 is a special case in which we want to clear list for given pin.
-	 * In case of that however dataAs<KpBufferingTaskParams> will return NULL.
-	 * To avoid this we first checking only modules count first and full config after that.
-	 * Other solution would be for driver to allways send 12 bytes even if there is no module
-	 * on list - which is also not very elegant.
-	 */
-	const struct kpb_task_params *cfg = NULL;
-	/* get first dword from payload, dword size field */
-	uint32_t nr_of_modules = *(uint32_t *)ba->data;
-	uint32_t outpin_id = extended_param_id.part.parameter_instance;
+	case KP_BUF_CFG_FM_MODULE: {
+		/* ACE comment:
+		 * Modules count equals 0 is a special case in which we want to clear list for given pin.
+		 * In case of that however dataAs<KpBufferingTaskParams> will return NULL.
+		 * To avoid this we first checking only modules count first and full config after that.
+		 * Other solution would be for driver to allways send 12 bytes even if there is no module
+		 * on list - which is also not very elegant.
+		 */
+		const struct kpb_task_params *cfg = NULL;
+		/* get first dword from payload, dword size field */
+		uint32_t nr_of_modules = *(uint32_t *)ba->data;
+		uint32_t outpin_id = extended_param_id.part.parameter_instance;
 
-	if (nr_of_modules != 0) {
-		cfg = (struct kpb_task_params *)ba->data;
-		if (ret  < 0)
+		if (nr_of_modules != 0) {
+			cfg = (struct kpb_task_params *)ba->data;
+			if (ret  < 0)
+				return -EINVAL;
+		}
+
+		if (outpin_id >= KPB_MAX_SINK_CNT)
 			return -EINVAL;
+
+		return ConfigureFastModeTask(dev, cfg, outpin_id);
 	}
-
-	if (outpin_id >= KPB_MAX_SINK_CNT)
-		return -EINVAL;
-
-	return ConfigureFastModeTask(dev, cfg, outpin_id);
-
 	case KP_BUF_CLIENT_MIC_SELECT:
 		return kpb_set_micselect(dev, data, data_offset);
 	default:
