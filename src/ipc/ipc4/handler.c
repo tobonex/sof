@@ -895,7 +895,7 @@ static int ipc4_set_vendor_config_module_instance(uint32_t module_id,
 		// module instance handling mechanism (there is no default impl of
 		// caching large_param_id - @see LargeConfigSet)
 		param_id = tlv->param_id;
-		ba.data = (uint8_t *)ba.data + TLV_DATA_OFFSET;
+		ba.data += TLV_DATA_OFFSET;
 		ba.size = ba.size - TLV_DATA_OFFSET;
 		data_off_size -= TLV_DATA_OFFSET;
 	}
