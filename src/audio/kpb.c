@@ -2423,8 +2423,9 @@ void devicelist_reset(struct device_list *devlist, bool remove_items)
 static struct comp_dev *get_dev_from_mi_id(uint32_t module_id, uint32_t instance_id)
 {
 	struct comp_dev *dev = NULL;
-	uint32_t comp_id = IPC4_COMP_ID(module_id, instance_id);
+	/* for now considering only IPC4 */
 #ifdef CONFIG_IPC_MAJOR_4
+	uint32_t comp_id = IPC4_COMP_ID(module_id, instance_id);
 	dev = ipc4_get_comp_dev(comp_id);
 #endif
 	return dev;
