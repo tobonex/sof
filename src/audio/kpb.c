@@ -2553,7 +2553,7 @@ static int ConfigureFastModeTask(struct comp_dev *kpb_dev, const struct kpb_task
 				 size_t pin)
 {
 	assert(cfg && pin < KPB_MAX_SINK_CNT && pin != REALTIME_PIN_ID &&
-	       cfg->module_instance_ids > 0);
+	       cfg->dev_ids > 0);
 
 	int ret = 0;
 	/* not sure if this var is needed for anything */
