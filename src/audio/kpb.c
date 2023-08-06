@@ -53,7 +53,8 @@
 #else
 #include <sof/lib/notifier.h>
 #endif
-
+//#include <sof/ipc/topology.h>
+#include <ipc4/module.h>
 static const struct comp_driver comp_kpb;
 
 LOG_MODULE_REGISTER(kpb, CONFIG_SOF_LOG_LEVEL);
@@ -2423,8 +2424,9 @@ static struct comp_dev *get_dev_from_mi_id(uint32_t module_id, uint32_t instance
 {
 	struct comp_dev *dev = NULL;
 	uint32_t comp_id = IPC4_COMP_ID(module_id, instance_id);
-
+#ifdef CONFIG_IPC_MAJOR_4
 	dev = ipc4_get_comp_dev(comp_id);
+#endif
 	return dev;
 }
 
