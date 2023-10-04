@@ -527,3 +527,22 @@ int zephyr_ll_scheduler_init(struct ll_schedule_domain *domain)
 
 	return 0;
 }
+
+#include <ipc4/base_fw.h>
+void scheduler_get_task_info_ll(struct scheduler_props *scheduler_props,
+				uint32_t *data_off_size)
+{
+	scheduler_props->processing_domain = COMP_PROCESSING_DOMAIN_LL;
+	struct zephyr_ll *ll_sch = (struct zephyr_ll *)scheduler_get_data(SOF_SCHEDULE_LL_TIMER);
+
+	scheduler_get_task_info(scheduler_props, data_off_size, &ll_sch->tasks, NULL);
+}
+
+void scheduler_get_task_info_ll_dma(struct scheduler_props *scheduler_props,
+				    uint32_t *data_off_size)
+{
+	scheduler_props->processing_domain = COMP_PROCESSING_DOMAIN_LL;
+	struct zephyr_ll *ll_sch = (struct zephyr_ll *)scheduler_get_data(SOF_SCHEDULE_LL_DMA);
+
+	scheduler_get_task_info(scheduler_props, data_off_size, &ll_sch->tasks, NULL);
+}

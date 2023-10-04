@@ -399,6 +399,10 @@ int schedule_task_init(struct task *task,
  */
 void scheduler_init(int type, const struct scheduler_ops *ops, void *data);
 
+#include <ipc4/base_fw.h>
+void scheduler_get_task_info(struct scheduler_props *scheduler_props,
+			     uint32_t *data_off_size, struct list_item *tasks, char *data);
+
 /** @}*/
 
 #endif /* __SOF_SCHEDULE_SCHEDULE_H__ */

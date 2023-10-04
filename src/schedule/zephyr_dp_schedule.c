@@ -533,3 +533,14 @@ err:
 	rfree(task_memory);
 	return ret;
 }
+
+#include <ipc4/base_fw.h>
+
+void scheduler_get_task_info_dp(struct scheduler_props *scheduler_props, uint32_t *data_off_size)
+{
+	scheduler_props->processing_domain = COMP_PROCESSING_DOMAIN_DP;
+	struct scheduler_dp_data *dp_sch =
+		(struct scheduler_dp_data *)scheduler_get_data(SOF_SCHEDULE_DP);
+
+	scheduler_get_task_info(scheduler_props, data_off_size,  &dp_sch->tasks, NULL);
+}
