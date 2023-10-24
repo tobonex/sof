@@ -502,16 +502,10 @@ int SchedulersInfoGet(uint32_t *data_off_size,
 	scheduler_get_task_info_dp(scheduler_props, data_off_size);
 
 	return 0;
-
-    schedulers_info->scheduler_info[0].task_info[0].task_id = 0;
-    schedulers_info->scheduler_info[0].task_info[0].module_instance_count =1;
-    *data_off_size += sizeof(struct TaskProps);
-
-    schedulers_info->scheduler_info[0].task_info[0].module_instance_id[0] = 0;
-    *data_off_size += sizeof(uint32_t);
-
-	return 0;
 }
+
+#include "adsp_debug_window.h"
+#include "mem_window.h"
 
 static int basefw_get_large_config(struct comp_dev *dev,
 				   uint32_t param_id,
@@ -586,7 +580,14 @@ static int basefw_set_large_config(struct comp_dev *dev,
 {
 	switch (param_id) {
 	case IPC4_FW_CONFIG:
+<<<<<<< HEAD
 		return basefw_set_fw_config(first_block, last_block, data_offset, data);
+=======
+		tr_warn(&basefw_comp_tr, "returning success for Set FW_CONFIG without handling it");
+		return 0;
+	case IPC4_PERF_MEASUREMENTS_STATE:
+		return 0;
+>>>>>>> telemetry: Add systick_info part of telemetry
 	case IPC4_SYSTEM_TIME:
 		return basefw_set_system_time(param_id, first_block,
 						last_block, data_offset, data);
