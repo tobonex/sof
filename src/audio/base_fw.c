@@ -507,6 +507,40 @@ int SchedulersInfoGet(uint32_t *data_off_size,
 #include "adsp_debug_window.h"
 #include "mem_window.h"
 
+enum perf_measurements_state_set {
+	PERF_MEASUREMENTS_DISABLED = 0,
+	PERF_MEASUREMENTS_STOPPED = 1,
+	PERF_MEASUREMENTS_STARTED = 2,
+	PERF_MEASUREMENTS_PAUSED = 3,
+};
+
+#define DW_TELEMETRY_SLOT 1
+
+void set_perf_meas_state(const char *data)
+{
+	int prid = cpu_get_id();
+
+	enum perf_measurements_state_set state = *data;
+
+	//second, debug slot, is there any define for that?
+	struct telemetry_wnd_data *wnd_data =
+			(struct telemetry_wnd_data *)ADSP_DW->slots[DW_TELEMETRY_SLOT];
+	struct system_tick_info *systick_info =
+			(struct system_tick_info *)wnd_data->system_tick_info;
+
+	switch (state) {
+	case PERF_MEASUREMENTS_DISABLED:
+		break;
+	case PERF_MEASUREMENTS_STOPPED:
+		for (int i = 0; i < CONFIG_MAX_CORE_COUNT; i++)
+			systick_info[i].peak_utilization = 0;
+		break;
+	case PERF_MEASUREMENTS_STARTED:
+	case PERF_MEASUREMENTS_PAUSED:
+		break;
+	}
+}
+
 static int basefw_get_large_config(struct comp_dev *dev,
 				   uint32_t param_id,
 				   bool first_block,
@@ -580,14 +614,10 @@ static int basefw_set_large_config(struct comp_dev *dev,
 {
 	switch (param_id) {
 	case IPC4_FW_CONFIG:
-<<<<<<< HEAD
 		return basefw_set_fw_config(first_block, last_block, data_offset, data);
-=======
-		tr_warn(&basefw_comp_tr, "returning success for Set FW_CONFIG without handling it");
-		return 0;
 	case IPC4_PERF_MEASUREMENTS_STATE:
+		set_perf_meas_state(data);
 		return 0;
->>>>>>> telemetry: Add systick_info part of telemetry
 	case IPC4_SYSTEM_TIME:
 		return basefw_set_system_time(param_id, first_block,
 						last_block, data_offset, data);
