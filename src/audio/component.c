@@ -505,3 +505,56 @@ int comp_copy(struct comp_dev *dev)
 
 	return ret;
 }
+
+inline uint32_t get_sample_group_size_in_bytes(const struct ipc4_audio_format fmt)
+{
+	return ((fmt.depth >> 3) * fmt.channels_count);
+}
+
+inline uint32_t get_one_ms_in_bytes(const struct ipc4_audio_format fmt)
+{
+	/* TODO Reference Firmware also has systick multiplier and divider in this equation */
+	return get_sample_group_size_in_bytes(fmt) *
+			(ROUND_UP(fmt.sampling_frequency, 1000) / 1000);
+}
+
+void comp_update_chunk_size(struct comp_dev *dev)
+{
+#if CONFIG_IPC_MAJOR_4
+	int ret;
+	struct ipc4_base_module_cfg source_src_cfg;
+
+	ret = comp_get_attribute(dev, COMP_ATTR_BASE_CONFIG, &source_src_cfg);
+	if (ret < 0) {
+		tr_err(&ipc_tr, "failed to get base config for module %#x",
+		       dev_comp_id(dev));
+		//return IPC4_FAILURE;
+	}
+	dev->ll_chunk_size_ = get_one_ms_in_bytes(source_src_cfg.audio_fmt);
+#else
+	dev->ll_chunk_size_ = 1;
+#endif
+}
+
+void comp_update_ibs_obs_cpc(struct comp_dev *dev)
+{
+#if CONFIG_IPC_MAJOR_4
+	int ret;
+	struct ipc4_base_module_cfg source_src_cfg;
+
+	ret = comp_get_attribute(dev, COMP_ATTR_BASE_CONFIG, &source_src_cfg);
+	if (ret < 0) {
+		tr_err(&ipc_tr, "failed to get base config for module %#x",
+		       dev_comp_id(dev));
+		//return IPC4_FAILURE;
+	}
+
+	dev->obs = source_src_cfg.obs;
+	dev->ibs = source_src_cfg.ibs;
+	dev->cpc = source_src_cfg.cpc;
+#else
+	dev->obs = 1;
+	dev->ibs = 1;
+#endif
+}
+
