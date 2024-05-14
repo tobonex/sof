@@ -102,4 +102,6 @@ int perf_data_free(struct perf_data_item_comp *item);
 
 int free_performance_data(struct perf_data_item_comp *item);
 
+int get_performance_data(struct global_perf_data * const global_perf_data);
+
 #endif /*__SOF_TELEMETRY_H__ */

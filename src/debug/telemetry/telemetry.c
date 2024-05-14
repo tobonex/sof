@@ -161,6 +161,46 @@ void perf_data_item_comp_init(struct perf_data_item_comp *perf, uint32_t resourc
 	perf->item.power_mode = power_mode;
 }
 
+int get_performance_data(struct global_perf_data * const global_perf_data)
+{
+	if (!global_perf_data) {
+		tr_err(&ipc_tr, "IPC data is NULL");
+		return -EINVAL;
+	}
+
+	size_t avg_utilization, peak_utilization, slots_count;
+	size_t slot_idx = 0;
+	struct telemetry_wnd_data *wnd_data =
+		(struct telemetry_wnd_data *)ADSP_DW->slots[SOF_DW_TELEMETRY_SLOT];
+	struct system_tick_info *systick_info =
+		(struct system_tick_info *)wnd_data->system_tick_info;
+
+	for (size_t core_id = 0; core_id < CONFIG_MAX_CORE_COUNT; ++core_id) {
+		if (!(cpu_enabled_cores() & BIT(core_id)))
+			continue;
+		avg_utilization = systick_info[core_id].avg_utilization;
+		peak_utilization = systick_info[core_id].peak_utilization;
+		memset(&global_perf_data->perf_items[slot_idx], 0, sizeof(struct perf_data_item));
+
+		/* 0 is id of base_fw */
+		global_perf_data->perf_items[slot_idx].resource_id = 0 + core_id;
+		global_perf_data->perf_items[slot_idx].avg_kcps = avg_utilization;
+		global_perf_data->perf_items[slot_idx].peak_kcps = peak_utilization;
+		++slot_idx;
+	}
+	slots_count = perf_bitmap_get_occupied(&performance_data_bitmap) + slot_idx;
+	global_perf_data->perf_item_count = slots_count;
+
+	for (size_t idx = 0; idx < perf_bitmap_get_size(&performance_data_bitmap) &&
+	     slot_idx < slots_count; ++idx) {
+		if (perf_bitmap_is_bit_clear(&performance_data_bitmap, idx))
+			continue;
+		global_perf_data->perf_items[slot_idx] = perf_data_[idx].item;
+		++slot_idx;
+	}
+	return IPC4_SUCCESS;
+}
+
 int free_performance_data(struct perf_data_item_comp *item)
 {
 	int ret;
