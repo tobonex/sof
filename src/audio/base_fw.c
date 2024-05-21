@@ -413,13 +413,21 @@ int set_perf_meas_state(const char *data)
 
 	switch (state) {
 	case IPC4_PERF_MEASUREMENTS_DISABLED:
+		disable_performance_counters();
+		perf_meas_set_state(IPC4_PERF_MEASUREMENTS_DISABLED);
 		break;
 	case IPC4_PERF_MEASUREMENTS_STOPPED:
-		for (int i = 0; i < CONFIG_MAX_CORE_COUNT; i++)
-			systick_info[i].peak_utilization = 0;
+		enable_performance_counters();
+		reset_performance_counters();
+		perf_meas_set_state(IPC4_PERF_MEASUREMENTS_STOPPED);
 		break;
 	case IPC4_PERF_MEASUREMENTS_STARTED:
+		enable_performance_counters();
+		perf_meas_set_state(IPC4_PERF_MEASUREMENTS_STARTED);
+		break;
 	case IPC4_PERF_MEASUREMENTS_PAUSED:
+		enable_performance_counters();
+		perf_meas_set_state(IPC4_PERF_MEASUREMENTS_PAUSED);
 		break;
 	default:
 		return -EINVAL;

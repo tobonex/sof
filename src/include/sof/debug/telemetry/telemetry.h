@@ -106,4 +106,11 @@ int get_performance_data(struct global_perf_data * const global_perf_data);
 
 int get_extended_performance_data(struct extended_global_perf_data * const ext_global_perf_data);
 
+int reset_performance_counters(void);
+int enable_performance_counters(void);
+void disable_performance_counters(void);
+
+void perf_meas_set_state(enum ipc4_perf_measurements_state_set state);
+enum ipc4_perf_measurements_state_set perf_meas_get_state(void);
+
 #endif /*__SOF_TELEMETRY_H__ */
