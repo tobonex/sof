@@ -5,6 +5,7 @@
 // Author: Tobiasz Dryjanski <tobiaszx.dryjanski@intel.com>
 
 #include <zephyr/debug/sparse.h>
+#include <zephyr/sys/bitarray.h>
 
 #include <sof/audio/module_adapter/module/generic.h>
 #include <sof/debug/telemetry/telemetry.h>
@@ -20,6 +21,78 @@
 #include <stdint.h>
 
 LOG_MODULE_DECLARE(ipc, CONFIG_SOF_LOG_LEVEL);
+
+struct perf_bitmap {
+	sys_bitarray_t *array;
+	uint16_t occupied;
+	size_t size;
+};
+
+static int perf_bitmap_init(struct perf_bitmap * const bitmap, sys_bitarray_t *array, size_t size)
+{
+	bitmap->array = array;
+	bitmap->size = size;
+	bitmap->occupied = 0;
+	return 0;
+}
+
+static int perf_bitmap_alloc(struct perf_bitmap * const bitmap, size_t *offset)
+{
+	int ret = sys_bitarray_alloc(bitmap->array, 1, offset);
+
+	if (!ret)
+		bitmap->occupied++;
+	return ret;
+}
+
+static int perf_bitmap_free(struct perf_bitmap * const bitmap, size_t offset)
+{
+	int ret =  sys_bitarray_free(bitmap->array, 1, offset);
+
+	if (!ret)
+		bitmap->occupied--;
+	return ret;
+}
+
+static int perf_bitmap_setbit(struct perf_bitmap * const bitmap, size_t bit)
+{
+	return sys_bitarray_set_bit(bitmap->array, bit);
+}
+
+static int perf_bitmap_clearbit(struct perf_bitmap * const bitmap, size_t bit)
+{
+	return sys_bitarray_clear_bit(bitmap->array, bit);
+}
+
+static inline uint16_t perf_bitmap_get_occupied(struct perf_bitmap * const bitmap)
+{
+	return bitmap->occupied;
+}
+
+static inline uint16_t perf_bitmap_get_size(struct perf_bitmap * const bitmap)
+{
+	return bitmap->size;
+}
+
+static int perf_bitmap_is_bit_set(struct perf_bitmap * const bitmap, size_t bit)
+{
+	int val;
+	int ret = sys_bitarray_test_bit(bitmap->array, bit, &val);
+
+	if (ret < 0)
+		return false;
+	return val;
+}__attribute__((unused))
+
+static int perf_bitmap_is_bit_clear(struct perf_bitmap * const bitmap, size_t bit)
+{
+	int val;
+	int ret = sys_bitarray_test_bit(bitmap->array, bit, &val);
+
+	if (ret < 0)
+		return false;
+	return !val;
+}
 
 /* Systic variables, one set per core */
 static int telemetry_systick_counter[CONFIG_MAX_CORE_COUNT];
