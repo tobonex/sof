@@ -6,6 +6,8 @@
 #ifndef __SOF_TELEMETRY_H__
 #define __SOF_TELEMETRY_H__
 
+#include <ipc4/base_fw.h>
+
 /* Slot in memory window 2 (Debug Window) to be used as telemetry slot */
 #define SOF_DW_TELEMETRY_SLOT 1
 /* Memory of average algorithm of performance queue */
@@ -89,6 +91,15 @@ struct telemetry_perf_queue {
 	size_t sum;
 };
 
+void perf_data_item_comp_init(struct perf_data_item_comp *perf, uint32_t resource_id,
+			    uint32_t power_mode);
+
 void telemetry_update(uint32_t begin_ccount, uint32_t current_ccount);
+
+struct perf_data_item_comp *perf_data_getnext(void);
+
+int perf_data_free(struct perf_data_item_comp *item);
+
+int free_performance_data(struct perf_data_item_comp *item);
 
 #endif /*__SOF_TELEMETRY_H__ */

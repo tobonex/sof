@@ -11,6 +11,7 @@
 #include <sof/debug/telemetry/telemetry.h>
 
 #include <ipc/trace.h>
+#include <ipc4/base_fw.h>
 
 #include <adsp_debug_window.h>
 #include <errno.h>
@@ -22,11 +23,25 @@
 
 LOG_MODULE_DECLARE(ipc, CONFIG_SOF_LOG_LEVEL);
 
+#define PERFORMANCE_DATA_ENTRIES_COUNT (CONFIG_MEMORY_WIN_3_SIZE / sizeof(struct perf_data_item_comp))
+
+SYS_BITARRAY_DEFINE_STATIC(performance_data_bit_array, PERFORMANCE_DATA_ENTRIES_COUNT);
+
 struct perf_bitmap {
 	sys_bitarray_t *array;
 	uint16_t occupied;
 	size_t size;
 };
+
+struct perf_bitmap performance_data_bitmap;
+
+struct perf_data_item_comp *perf_data_;
+
+/* Note that ref. FW used one state per core, all set together to the same state
+ * by one IPC but only for active cores. It may work slightly different in case
+ * where we enable a core while perf meas is started.
+ */
+enum ipc4_perf_measurements_state_set perf_measurements_state = IPC4_PERF_MEASUREMENTS_DISABLED;
 
 static int perf_bitmap_init(struct perf_bitmap * const bitmap, sys_bitarray_t *array, size_t size)
 {
@@ -94,6 +109,76 @@ static int perf_bitmap_is_bit_clear(struct perf_bitmap * const bitmap, size_t bi
 	return !val;
 }
 
+struct perf_data_item_comp *perf_data_getnext(void)
+{
+	int idx;
+	int ret = perf_bitmap_alloc(&performance_data_bitmap, &idx);
+
+	if (ret < 0)
+		return NULL;
+	/* original fw did not set the bits, but here we do it to not have to use
+	 * isFree() check that the bitarray does not provide yet. Instead we will use isClear
+	 * ,and always set bit on bitmap alloc.
+	 */
+	ret = perf_bitmap_setbit(&performance_data_bitmap, idx);
+	if (ret < 0)
+		return NULL;
+	return &perf_data_[idx];
+}
+
+int perf_data_free(struct perf_data_item_comp * const item)
+{
+	/* find index of item */
+	int idx = (item - perf_data_) / sizeof(*item);
+	int ret = perf_bitmap_clearbit(&performance_data_bitmap, idx);
+
+	if (ret < 0)
+		return -EINVAL;
+	ret = perf_bitmap_free(&performance_data_bitmap, idx);
+	if (ret < 0)
+		return -EINVAL;
+
+	return IPC4_SUCCESS;
+}
+
+void perf_data_item_comp_reset(struct perf_data_item_comp *perf)
+{
+	perf->total_iteration_count = 0;
+	perf->total_cycles_consumed = 0;
+	perf->restricted_total_iterations = 0;
+	perf->restricted_total_cycles = 0;
+	perf->restricted_peak_cycles = 0;
+	perf->item.peak_kcps = 0;
+	perf->item.avg_kcps = 0;
+}
+
+void perf_data_item_comp_init(struct perf_data_item_comp *perf, uint32_t resource_id,
+			    uint32_t power_mode)
+{
+	perf_data_item_comp_reset(perf);
+	perf->item.resource_id = resource_id;
+	perf->item.is_removed = false;
+	perf->item.power_mode = power_mode;
+}
+
+int free_performance_data(struct perf_data_item_comp *item)
+{
+	int ret;
+
+	if (item) {
+		item->item.is_removed = true;
+		/* if we don't get the disabled state now, item will be
+		 * deleted on next disable perf meas message
+		 */
+		if (perf_measurements_state == IPC4_PERF_MEASUREMENTS_DISABLED) {
+			ret = perf_data_free(item);
+			if (ret < 0)
+				return ret;
+		}
+	}
+	return 0;
+}
+
 /* Systic variables, one set per core */
 static int telemetry_systick_counter[CONFIG_MAX_CORE_COUNT];
 static int telemetry_prev_ccount[CONFIG_MAX_CORE_COUNT];
@@ -159,6 +244,12 @@ int telemetry_init(void)
 		systick_info[i].peak_utilization_4k = 0;
 		systick_info[i].peak_utilization_8k = 0;
 	}
+
+	/* init global performance measurement */
+	perf_data_ = (struct perf_data_item_comp *)ADSP_PMW;
+	perf_bitmap_init(&performance_data_bitmap, &performance_data_bit_array,
+			 PERFORMANCE_DATA_ENTRIES_COUNT);
+
 	return 0;
 }
 

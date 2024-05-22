@@ -495,7 +495,17 @@ int comp_copy(struct comp_dev *dev)
 		perf_cnt_init(&dev->pcd);
 #endif
 
+#ifdef SOF_PERFORMANCE_MEASUREMENTS
+		const uint32_t begin_stamp = (uint32_t)sof_cycle_get_64();
+#endif
+
 		ret = dev->drv->ops.copy(dev);
+
+#ifdef SOF_PERFORMANCE_MEASUREMENTS
+		const uint32_t cycles_consumed = (uint32_t)sof_cycle_get_64() - begin_stamp;
+
+		comp_update_performance_data(dev, cycles_consumed);
+#endif
 
 #if CONFIG_PERFORMANCE_COUNTERS
 		perf_cnt_stamp(&dev->pcd, perf_trace_null, dev);
@@ -505,6 +515,50 @@ int comp_copy(struct comp_dev *dev)
 
 	return ret;
 }
+
+#ifdef SOF_PERFORMANCE_MEASUREMENTS
+void comp_init_performance_data(struct comp_dev *dev)
+{
+	struct perf_data_item_comp *item = dev->perf_data.perf_data_item;
+
+	if (item)
+		perf_data_item_comp_init(item, dev->ipc_config.id, 0);
+}
+
+/* returns true if budget violation occured */
+bool update_peak_of_measured_cpc(struct comp_dev *dev, size_t measured_cpc)
+{
+    if (measured_cpc <= dev->perf_data.peak_of_measured_cpc)
+    {
+        return false;
+    }
+    dev->perf_data.peak_of_measured_cpc = measured_cpc;
+    if (measured_cpc <= dev->cpc)
+    {
+        return false;
+    }
+    return true;
+}
+
+bool comp_update_performance_data(struct comp_dev *dev, uint32_t cycles_used)
+{
+	struct perf_data_item_comp *item = dev->perf_data.perf_data_item;
+
+	if (perf_meas_get_state() == IPC4_PERF_MEASUREMENTS_STARTED) {
+		/* we divide by ibs so we need to check if its set */
+		if (item && dev->ibs != 0) {
+			item->total_iteration_count++;
+			item->total_cycles_consumed += cycles_used;
+			item->item.avg_kcps = item->total_cycles_consumed * dev->ll_chunk_size_
+				/ (dev->ibs * item->total_iteration_count);
+			item->item.peak_kcps =
+				MAX(item->item.peak_kcps, (cycles_used * dev->ll_chunk_size_)
+				/ dev->ibs);
+		}
+	}
+	return update_peak_of_measured_cpc(dev, cycles_used);
+}
+#endif
 
 inline uint32_t get_sample_group_size_in_bytes(const struct ipc4_audio_format fmt)
 {
