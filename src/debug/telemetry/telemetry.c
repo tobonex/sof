@@ -219,6 +219,67 @@ int free_performance_data(struct perf_data_item_comp *item)
 	return 0;
 }
 
+int get_extended_performance_data(struct extended_global_perf_data * const ext_global_perf_data)
+{
+	if (!ext_global_perf_data)
+		return -EINVAL;
+
+	size_t slots_count;
+	size_t slot_idx = 0;
+	uint64_t total_dsp_cycles[CONFIG_MAX_CORE_COUNT];
+
+	/* TODO
+	 * Seting temporary values here.
+	 * Replace this with actual total dsp cycles info once it is available.
+	 */
+	for (size_t core_id = 0; core_id < CONFIG_MAX_CORE_COUNT; ++core_id)
+		total_dsp_cycles[core_id] = 1;
+
+	for (size_t core_id = 0; core_id < CONFIG_MAX_CORE_COUNT; ++core_id) {
+		if (!(cpu_enabled_cores() & BIT(core_id)))
+			continue;
+
+		memset(&ext_global_perf_data->perf_items[slot_idx], 0,
+		       sizeof(struct ext_perf_data_item));
+		/* 0 is id of base_fw */
+		ext_global_perf_data->perf_items[slot_idx].resource_id = 0 + core_id;
+		ext_global_perf_data->perf_items[slot_idx].module_total_dsp_cycles_consumed =
+			total_dsp_cycles[core_id];
+		++slot_idx;
+	}
+
+	slots_count = perf_bitmap_get_occupied(&performance_data_bitmap) + slot_idx;
+	ext_global_perf_data->perf_item_count = slots_count;
+
+	for (size_t idx = 0; idx < perf_bitmap_get_size(&performance_data_bitmap) &&
+	     slot_idx < slots_count; ++idx) {
+		if (perf_bitmap_is_bit_clear(&performance_data_bitmap, idx))
+			continue;
+
+		ext_global_perf_data->perf_items[slot_idx].resource_id =
+			perf_data_[idx].item.resource_id;
+		ext_global_perf_data->perf_items[slot_idx].power_mode =
+			perf_data_[idx].item.power_mode;
+		ext_global_perf_data->perf_items[slot_idx].is_removed =
+			perf_data_[idx].item.is_removed;
+		ext_global_perf_data->perf_items[slot_idx].module_total_dsp_iterations =
+			perf_data_[idx].total_iteration_count;
+		ext_global_perf_data->perf_items[slot_idx].module_total_dsp_cycles_consumed =
+			perf_data_[idx].total_cycles_consumed;
+		ext_global_perf_data->perf_items[slot_idx].module_peak_dsp_cycles =
+			perf_data_[idx].item.peak_kcps * 1000;
+		ext_global_perf_data->perf_items[slot_idx].module_peak_restricted_cycles =
+			perf_data_[idx].restricted_peak_cycles;
+		ext_global_perf_data->perf_items[slot_idx].module_total_restricted_cycles_consumed =
+			perf_data_[idx].restricted_total_cycles;
+		ext_global_perf_data->perf_items[slot_idx].module_total_restricted_iterations =
+			perf_data_[idx].restricted_total_iterations;
+		ext_global_perf_data->perf_items[slot_idx].rsvd = 0;
+		++slot_idx;
+	}
+	return IPC4_SUCCESS;
+}
+
 /* Systic variables, one set per core */
 static int telemetry_systick_counter[CONFIG_MAX_CORE_COUNT];
 static int telemetry_prev_ccount[CONFIG_MAX_CORE_COUNT];
