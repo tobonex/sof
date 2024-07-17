@@ -35,6 +35,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/dai.h>
 
+#include <sof/debug/telemetry/performance_monitor.h>
+
 /** \addtogroup sof_dai_drivers DAI Drivers
  *  DAI Drivers API specification.
  *  @{
@@ -149,6 +151,10 @@ struct dai_data {
 	uint32_t sampling;
 	/* fast mode, use one byte memory to save repreated cycles */
 	bool fast_mode;
+#ifdef CONFIG_SOF_TELEMETRY_IO_PERFORMANCE_MEASUREMENTS
+	/* io performance measurement */
+	struct io_perf_data_item *io_perf_bytes_count;
+#endif
 };
 
 /* these 3 are here to satisfy clk.c and ssp.h interconnection, will be removed leter */

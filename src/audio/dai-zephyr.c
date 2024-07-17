@@ -41,6 +41,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/dai.h>
 
+#include <sof/debug/telemetry/performance_monitor.h>
+
 /* note: if this macro is not defined
  * then that means the HOST and the DSP
  * have the same view of the address space.
@@ -342,6 +344,10 @@ dai_dma_cb(struct dai_data *dd, struct comp_dev *dev, uint32_t bytes,
 		/* update host position (in bytes offset) for drivers */
 		dd->total_data_processed += bytes;
 	}
+#ifdef CONFIG_SOF_TELEMETRY_IO_PERFORMANCE_MEASUREMENTS
+	/* Increment performance counters */
+	io_perf_monitor_update_data(dd->io_perf_bytes_count, bytes);
+#endif
 
 	return dma_status;
 }
@@ -434,6 +440,47 @@ int dai_common_new(struct dai_data *dd, struct comp_dev *dev,
 	dd->xrun = 0;
 	dd->chan = NULL;
 
+	/* I/O performance init, keep it last so the function does not reach this in case
+	 * of return on error, so that we do not waste a slot
+	 */
+#ifdef CONFIG_SOF_TELEMETRY_IO_PERFORMANCE_MEASUREMENTS
+	enum io_perf_data_item_id perf_type;
+	enum io_perf_data_item_dir perf_dir;
+
+	switch (dai_cfg->type) {
+	case SOF_DAI_INTEL_SSP:
+		perf_type = I2S_ID;
+		break;
+	case SOF_DAI_INTEL_ALH:
+		perf_type = SOUND_WIRE_ID;
+		break;
+	case SOF_DAI_INTEL_DMIC:
+		perf_type = DMIC_ID;
+		break;
+	case SOF_DAI_INTEL_HDA:
+		perf_type = HDA_ID;
+		break;
+
+	default:
+		perf_type = INVALID_ID;
+	}
+	if (dai_cfg->direction == SOF_IPC_STREAM_PLAYBACK)
+		perf_dir = INPUT_DIRECTION;
+	else
+		perf_dir = OUTPUT_DIRECTION;
+
+	/* ignore perf meas init on case of other dai types */
+	if (perf_type != INVALID_ID) {
+		struct io_perf_data_item init_data = {perf_type,
+						      cpu_get_id(),
+						      perf_dir,
+						      POWERED_UP_ENABLED,
+						      D0IX_POWER_MODE,
+						      0, 0, 0 };
+		io_perf_monitor_init_data(&dd->io_perf_bytes_count, &init_data);
+	}
+#endif
+
 	return 0;
 }
 
@@ -490,6 +537,10 @@ void dai_common_free(struct dai_data *dd)
 	dai_release_llp_slot(dd);
 
 	dai_put(dd->dai);
+
+#ifdef CONFIG_SOF_TELEMETRY_IO_PERFORMANCE_MEASUREMENTS
+	io_perf_monitor_release_slot(dd->io_perf_bytes_count);
+#endif
 
 	rfree(dd->dai_spec_config);
 }
