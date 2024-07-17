@@ -433,7 +433,8 @@ int io_perf_monitor_init(void)
 }
 
 /* init performance monitor using Zephyr */
-SYS_INIT(io_perf_monitor_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+/* IMPORTANT , this init is now in IPC init, temporarily */
+//SYS_INIT(io_perf_monitor_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
 
 static struct io_perf_data_item *io_perf_monitor_get_next_slot(struct io_perf_monitor_ctx *self)
 {

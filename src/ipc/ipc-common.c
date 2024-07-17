@@ -282,6 +282,7 @@ int ipc_init(struct sof *sof)
 	list_init(&sof->ipc->comp_list);
 
 #ifdef CONFIG_SOF_TELEMETRY_IO_PERFORMANCE_MEASUREMENTS
+	io_perf_monitor_init();
 	struct io_perf_data_item init_data = {IO_PERF_IPC_ID,
 					      cpu_get_id(),
 					      IO_PERF_INPUT_DIRECTION,
